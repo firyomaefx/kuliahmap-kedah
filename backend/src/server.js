@@ -309,9 +309,13 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
 /* ==================== HEALTH ==================== */
 app.get('/api/health', (req, res) => res.json({ status: 'OK', version: '2.0.0' }));
 
-/* ==================== SPA Fallback ==================== */
-app.get('*', (req, res) => {
-  res.sendFile(require('path').join(publicPath, 'index.html'));
+/* ==================== SPA Fallback (must be last) ==================== */
+app.use((req, res) => {
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({ error: 'Endpoint tidak dijumpai' });
+  } else {
+    res.sendFile(require('path').join(publicPath, 'index.html'));
+  }
 });
 
 const PORT = process.env.PORT || 3001;
