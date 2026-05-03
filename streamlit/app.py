@@ -140,7 +140,8 @@ def get_masjid(conn, district=None, search=None):
         sql += " AND district=?"; params.append(district)
     if search:
         sql += " AND (name LIKE ? OR address LIKE ?)"; params.extend([f"%{search}%", f"%{search}%"])
-    return conn.execute(sql, params).fetchall()
+    rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
 
 def get_kuliah(conn, district=None, ktype=None, time_filter=None, search=None):
     sql = """SELECT kuliah.*, masjid.name as masjid_name, masjid.address, masjid.district,
@@ -165,13 +166,15 @@ def get_kuliah(conn, district=None, ktype=None, time_filter=None, search=None):
             nxt = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
             sql += " AND ((kuliah.date BETWEEN ? AND ?) OR kuliah.recurrence!='one_time')"; params.extend([today,nxt])
     sql += " ORDER BY kuliah.date ASC, kuliah.time_start ASC"
-    return conn.execute(sql, params).fetchall()
+    rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
 
 def get_kuliah_by_id(conn, kid):
-    return conn.execute("""SELECT kuliah.*, masjid.name as masjid_name, masjid.address, masjid.district,
+    row = conn.execute("""SELECT kuliah.*, masjid.name as masjid_name, masjid.address, masjid.district,
         masjid.latitude, masjid.longitude, masjid.phone as masjid_phone
         FROM kuliah JOIN masjid ON kuliah.masjid_id=masjid.id
         WHERE kuliah.id=? AND kuliah.status='approved'""", (kid,)).fetchone()
+    return dict(row) if row else None
 
 def submit_kuliah(conn, data):
     c = conn.cursor()
