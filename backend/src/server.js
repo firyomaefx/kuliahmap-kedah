@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { db, initSchema, seedData } = require('./db');
 const Groq = require('groq-sdk');
+const { computeNextDate, isOccurringToday } = require('./recurrence');
 
 const app = express();
 app.use(cors());
@@ -119,9 +120,15 @@ app.get('/api/kuliah', (req, res) => {
 
   db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    let results = rows;
+    let results = rows.map(k => ({
+      ...k,
+      is_today: isOccurringToday(k.recurrence, k.recurrence_day),
+      next_date: k.recurrence !== 'one_time'
+        ? computeNextDate(k.recurrence, k.recurrence_day)
+        : k.date,
+    }));
     if (lat && lng) {
-      results = rows.map(k => ({ ...k, distance: parseFloat(haversine(+lat, +lng, k.latitude, k.longitude).toFixed(2)) }))
+      results = results.map(k => ({ ...k, distance: parseFloat(haversine(+lat, +lng, k.latitude, k.longitude).toFixed(2)) }))
         .sort((a, b) => a.distance - b.distance);
     }
     res.json(results);
@@ -132,7 +139,14 @@ app.get('/api/kuliah/:id', (req, res) => {
   db.get(`SELECT kuliah.*, masjid.name as masjid_name, masjid.address, masjid.district, masjid.latitude, masjid.longitude, masjid.phone as masjid_phone FROM kuliah JOIN masjid ON kuliah.masjid_id = masjid.id WHERE kuliah.id = ? AND kuliah.status = 'approved'`, [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Kuliah tidak dijumpai' });
-    res.json(row);
+    const enriched = {
+      ...row,
+      is_today: isOccurringToday(row.recurrence, row.recurrence_day),
+      next_date: row.recurrence !== 'one_time'
+        ? computeNextDate(row.recurrence, row.recurrence_day)
+        : row.date,
+    };
+    res.json(enriched);
   });
 });
 
@@ -262,7 +276,14 @@ app.post('/api/admin/login', (req, res) => {
 app.get('/api/admin/submissions', authMiddleware, adminMiddleware, (req, res) => {
   db.all(`SELECT kuliah.*, masjid.name as masjid_name, masjid.district FROM kuliah JOIN masjid ON kuliah.masjid_id = masjid.id WHERE kuliah.status = 'pending' ORDER BY kuliah.created_at DESC`, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+    const enriched = rows.map(k => ({
+      ...k,
+      is_today: isOccurringToday(k.recurrence, k.recurrence_day),
+      next_date: k.recurrence !== 'one_time'
+        ? computeNextDate(k.recurrence, k.recurrence_day)
+        : k.date,
+    }));
+    res.json(enriched);
   });
 });
 

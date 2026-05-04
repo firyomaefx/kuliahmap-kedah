@@ -158,9 +158,17 @@ export default function Home() {
   }
 
   function formatSchedule(k) {
-    if (k.recurrence === 'weekly') return `Setiap ${DAY_NAMES[k.recurrence_day] || k.recurrence_day}`
-    if (k.recurrence === 'monthly') return 'Setiap Bulan'
-    return formatDate(k.date)
+    if (k.recurrence === 'weekly') {
+      const day = DAY_NAMES[k.recurrence_day]
+      const base = day ? `Setiap ${day}` : 'Setiap Minggu'
+      if (k.next_date) return `${base} (seterusnya: ${formatDate(k.next_date)})`
+      return base
+    }
+    if (k.recurrence === 'monthly') {
+      if (k.next_date) return `Setiap Bulan (seterusnya: ${formatDate(k.next_date)})`
+      return 'Setiap Bulan'
+    }
+    return formatDate(k.next_date || k.date)
   }
 
   const filteredKuliah = useMemo(() => {
@@ -171,9 +179,9 @@ export default function Home() {
     }
     if (sortBy === 'nearest' && list[0]?.distance !== undefined) list.sort((a, b) => a.distance - b.distance)
     else if (sortBy === 'soonest') list.sort((a, b) => {
-      if (a.recurrence !== 'one_time' && b.recurrence === 'one_time') return -1
-      if (a.recurrence === 'one_time' && b.recurrence !== 'one_time') return 1
-      return (a.date || '').localeCompare(b.date || '')
+      const aDate = a.next_date || a.date || '9999-12-31';
+      const bDate = b.next_date || b.date || '9999-12-31';
+      return aDate.localeCompare(bDate);
     })
     return list
   }, [kuliahList, search, sortBy])
@@ -262,6 +270,7 @@ export default function Home() {
                   <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5"><User className="w-3.5 h-3.5 shrink-0" />{k.ustaz_name}</p>
                 </div>
                 <div className="text-right text-xs text-gray-400 shrink-0">
+                  {k.is_today && <span className="inline-block mb-1 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs font-semibold">Hari Ini!</span>}
                   <p className="font-medium text-gray-600">{formatSchedule(k)}</p>
                   <p>{formatTime(k.time_start)}{k.time_end ? ` - ${formatTime(k.time_end)}` : ''}</p>
                   <span className="inline-block mt-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs">{k.kuliah_type.replace(/_/g, ' ')}</span>
