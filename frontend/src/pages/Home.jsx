@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 're
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Link } from 'react-router-dom'
-import { MapPin, Clock, User, Navigation, Crosshair, Search, Heart, AlertTriangle, Bell, BellRing } from 'lucide-react'
+import { MapPin, Clock, User, Navigation, Crosshair, Search, BellRing, Filter } from 'lucide-react'
 import api from '../api'
 import { useAuth } from '../App'
 import useWebSocket from '../hooks/useWebSocket'
@@ -30,10 +30,10 @@ const userIcon = new L.Icon({
 
 const DISTRICTS = ['Kota Setar','Kuala Muda','Kubang Pasu','Kulim','Langkawi','Padang Terap','Pendang','Pokok Sena','Sik','Baling','Bandar Baharu','Yan']
 const TYPES = [
-  { value: '', label: 'Semua Jenis' },{ value: 'kuliah_maghrib', label: 'Kuliah Maghrib' },
-  { value: 'kuliah_subuh', label: 'Kuliah Subuh' },{ value: 'ceramah_khas', label: 'Ceramah Khas' },
-  { value: 'tazkirah', label: 'Tazkirah' },{ value: 'kuliah_muslimat', label: 'Kuliah Muslimat' },
-  { value: 'kuliah_jumaat', label: 'Kuliah Jumaat' },
+  { value: '', label: 'Semua Jenis' },{ value: 'kuliah_maghrib', label: 'Kuliah Maghrib', badge: 'badge-maghrib' },
+  { value: 'kuliah_subuh', label: 'Kuliah Subuh', badge: 'badge-subuh' },{ value: 'ceramah_khas', label: 'Ceramah Khas', badge: 'badge-ceramah' },
+  { value: 'tazkirah', label: 'Tazkirah', badge: 'badge-tazkirah' },{ value: 'kuliah_muslimat', label: 'Kuliah Muslimat', badge: 'badge-muslimat' },
+  { value: 'kuliah_jumaat', label: 'Kuliah Jumaat', badge: 'badge-jumaat' },
 ]
 const TIMES = [{ value: '', label: 'Semua Masa' },{ value: 'today', label: 'Hari Ini' },{ value: 'week', label: 'Minggu Ini' },{ value: 'month', label: 'Bulan Ini' }]
 const DAY_NAMES = { sunday:'Ahad',monday:'Isnin',tuesday:'Selasa',wednesday:'Rabu',thursday:'Khamis',friday:'Jumaat',saturday:'Sabtu' }
@@ -67,15 +67,15 @@ function GeocodeSearch({ onSelect }) {
 
   return (
     <div className="relative">
-      <form onSubmit={search} className="flex gap-1">
-        <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari lokasi (cth: Alor Setar)..."
-          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-        <button type="submit" className="bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-emerald-700 transition-colors flex items-center gap-1">
+      <form onSubmit={search} className="flex gap-1.5">
+        <input type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari lokasi..."
+          className="flex-1 border border-emerald-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80" />
+        <button type="submit" className="bg-emerald-600 text-white px-3 py-2 rounded-xl text-sm hover:bg-emerald-700 transition-colors flex items-center gap-1">
           <Search className="w-4 h-4" />
         </button>
       </form>
       {show && results.length > 0 && (
-        <div className="absolute z-50 top-full left-0 right-0 bg-white border rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+        <div className="absolute z-50 top-full left-0 right-0 bg-white rounded-xl shadow-lg mt-1 max-h-48 overflow-y-auto border">
           {results.map((r, i) => (
             <button key={i} onClick={() => { onSelect({ lat: parseFloat(r.lat), lng: parseFloat(r.lon) }); setShow(false); setQuery(r.display_name.split(',')[0]) }}
               className="block w-full text-left px-3 py-2 text-sm hover:bg-emerald-50 border-b last:border-0">
@@ -85,11 +85,36 @@ function GeocodeSearch({ onSelect }) {
           ))}
         </div>
       )}
-      {show && results.length === 0 && !loading && (
-        <div className="absolute z-50 top-full left-0 right-0 bg-white border rounded-lg shadow-lg mt-1 p-3 text-sm text-gray-500">Tiada hasil dijumpai.</div>
-      )}
     </div>
   )
+}
+
+function getBadgeClass(type) {
+  const m = { kuliah_maghrib: 'badge-maghrib', kuliah_subuh: 'badge-subuh', ceramah_khas: 'badge-ceramah', tazkirah: 'badge-tazkirah', kuliah_muslimat: 'badge-muslimat', kuliah_jumaat: 'badge-jumaat' }
+  return m[type] || 'badge-maghrib'
+}
+
+function formatTime(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':')
+  const hr = parseInt(h)
+  return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m} ${hr >= 12 ? 'PM' : 'AM'}`
+}
+
+function formatDate(d) {
+  if (!d) return ''
+  return new Date(d + 'T00:00:00').toLocaleDateString('ms-MY', { weekday:'short', day:'numeric', month:'short' })
+}
+
+function formatSchedule(k) {
+  if (k.recurrence === 'weekly') {
+    const day = DAY_NAMES[k.recurrence_day]
+    const base = day ? `Setiap ${day}` : 'Setiap Minggu'
+    if (k.next_date) return `${base} · ${formatDate(k.next_date)}`
+    return base
+  }
+  if (k.recurrence === 'monthly') return k.next_date ? `Bulanan · ${formatDate(k.next_date)}` : 'Setiap Bulan'
+  return formatDate(k.next_date || k.date)
 }
 
 export default function Home() {
@@ -103,18 +128,11 @@ export default function Home() {
   const [userPos, setUserPos] = useState(null)
   const [sortBy, setSortBy] = useState('soonest')
   const [clickMode, setClickMode] = useState(false)
-  const [favorites, setFavorites] = useState([])
   const { lastEvent, connected } = useWebSocket()
   const [liveNotice, setLiveNotice] = useState('')
 
   useEffect(() => { api.get('/masjid').then(r => setMasjidList(r.data)).catch(() => {}) }, [])
   useEffect(() => { fetchKuliah() }, [district, type, time, userPos])
-  useEffect(() => {
-    if (user) {
-      api.get('/favorites', { headers: { Authorization: `Bearer ${localStorage.getItem('userToken')}` } })
-        .then(r => setFavorites(r.data.map(f => f.id))).catch(() => {})
-    }
-  }, [user])
   useEffect(() => {
     if (!lastEvent) return
     if (lastEvent.type === 'kuliah_update') {
@@ -126,7 +144,7 @@ export default function Home() {
     } else if (lastEvent.type === 'geocode_update') {
       fetchKuliah()
     }
-    const t = setTimeout(() => setLiveNotice(''), 5000)
+    const t = setTimeout(() => setLiveNotice(''), 4000)
     return () => clearTimeout(t)
   }, [lastEvent])
 
@@ -140,53 +158,14 @@ export default function Home() {
   }
 
   function detectLocation() {
-    if (!navigator.geolocation) return alert('Geolokasi tidak disokong oleh pelayar anda')
+    if (!navigator.geolocation) return alert('Geolokasi tidak disokong')
     navigator.geolocation.getCurrentPosition(
       pos => { setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setClickMode(false) },
-      () => alert('Tidak dapat mengesan lokasi anda')
+      () => alert('Tidak dapat mengesan lokasi')
     )
   }
 
-  function toggleFavorite(masjidId) {
-    if (!user) return alert('Sila log masuk terlebih dahulu')
-    const token = localStorage.getItem('userToken')
-    const isFav = favorites.includes(masjidId)
-    if (isFav) {
-      api.delete(`/favorites/${masjidId}`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(() => setFavorites(prev => prev.filter(id => id !== masjidId)))
-    } else {
-      api.post('/favorites', { masjid_id: masjidId }, { headers: { Authorization: `Bearer ${token}` } })
-        .then(() => setFavorites(prev => [...prev, masjidId]))
-    }
-  }
-
   function handleMapClick(pos) { setUserPos(pos); setClickMode(false) }
-
-  function formatTime(t) {
-    if (!t) return ''
-    const [h, m] = t.split(':')
-    const hr = parseInt(h)
-    return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m} ${hr >= 12 ? 'PM' : 'AM'}`
-  }
-
-  function formatDate(d) {
-    if (!d) return ''
-    return new Date(d + 'T00:00:00').toLocaleDateString('ms-MY', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
-  }
-
-  function formatSchedule(k) {
-    if (k.recurrence === 'weekly') {
-      const day = DAY_NAMES[k.recurrence_day]
-      const base = day ? `Setiap ${day}` : 'Setiap Minggu'
-      if (k.next_date) return `${base} (seterusnya: ${formatDate(k.next_date)})`
-      return base
-    }
-    if (k.recurrence === 'monthly') {
-      if (k.next_date) return `Setiap Bulan (seterusnya: ${formatDate(k.next_date)})`
-      return 'Setiap Bulan'
-    }
-    return formatDate(k.next_date || k.date)
-  }
 
   const filteredKuliah = useMemo(() => {
     let list = [...kuliahList]
@@ -196,9 +175,9 @@ export default function Home() {
     }
     if (sortBy === 'nearest' && list[0]?.distance !== undefined) list.sort((a, b) => a.distance - b.distance)
     else if (sortBy === 'soonest') list.sort((a, b) => {
-      const aDate = a.next_date || a.date || '9999-12-31';
-      const bDate = b.next_date || b.date || '9999-12-31';
-      return aDate.localeCompare(bDate);
+      const aDate = a.next_date || a.date || '9999-12-31'
+      const bDate = b.next_date || b.date || '9999-12-31'
+      return aDate.localeCompare(bDate)
     })
     return list
   }, [kuliahList, search, sortBy])
@@ -213,91 +192,87 @@ export default function Home() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-4">
-      <p className="text-center text-emerald-700 font-medium mb-3 text-sm">Cari Kuliah & Ceramah Berdekatan Anda</p>
-
       {liveNotice && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg mb-3 text-sm flex items-center gap-2 animate-pulse">
-          <BellRing className="w-4 h-4 shrink-0" />
-          {liveNotice}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-2.5 rounded-xl mb-3 text-sm flex items-center gap-2 shadow-lg animate-pulse">
+          <BellRing className="w-4 h-4 shrink-0" />{liveNotice}
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border p-4 mb-4 space-y-3">
+      <div className="card-glass p-4 mb-4 space-y-3">
         <div className="flex gap-2 items-center">
           <div className="flex-1"><GeocodeSearch onSelect={pos => setUserPos(pos)} /></div>
-          <button onClick={detectLocation} className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-emerald-700 transition-colors" title="GPS Auto-Detect">
+          <button onClick={detectLocation} className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-2 rounded-xl text-sm hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-200" title="GPS">
             <Navigation className="w-4 h-4" /><span className="hidden sm:inline">GPS</span>
           </button>
-          <button onClick={() => setClickMode(prev => !prev)}
-            className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors ${clickMode ? 'bg-red-500 text-white animate-pulse' : 'bg-amber-500 text-white hover:bg-amber-600'}`}
-            title="Klik pada peta untuk tandakan lokasi">
+          <button onClick={() => setClickMode(p => !p)}
+            className={`flex items-center gap-1 px-3 py-2 rounded-xl text-sm shadow-md transition-all ${clickMode ? 'bg-red-500 text-white animate-pulse shadow-red-200' : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-200'}`}>
             <Crosshair className="w-4 h-4" />
             <span className="hidden sm:inline">{clickMode ? 'Klik Peta...' : 'Pilih Lokasi'}</span>
           </button>
         </div>
-        {clickMode && <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">&#x1F4CD; Klik pada peta untuk menandakan lokasi anda.</p>}
-        <div className="flex gap-2">
-          <input type="text" placeholder="Cari ustaz, masjid, tajuk..." value={search} onChange={e => setSearch(e.target.value)}
-            className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-        </div>
+        {clickMode && <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2 font-medium">Klik pada peta untuk menandakan lokasi anda.</p>}
+        <input type="text" placeholder="Cari ustaz, masjid, tajuk..." value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full border border-emerald-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80" />
         <div className="flex flex-wrap gap-2">
-          <select value={district} onChange={e => setDistrict(e.target.value)} className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[130px]">
+          <select value={district} onChange={e => setDistrict(e.target.value)} className="border border-emerald-200 rounded-xl px-3 py-2 text-sm flex-1 min-w-[130px] bg-white/80">
             <option value="">Semua Daerah</option>
             {DISTRICTS.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
-          <select value={type} onChange={e => setType(e.target.value)} className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[130px]">
+          <select value={type} onChange={e => setType(e.target.value)} className="border border-emerald-200 rounded-xl px-3 py-2 text-sm flex-1 min-w-[130px] bg-white/80">
             {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
-          <select value={time} onChange={e => setTime(e.target.value)} className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[130px]">
+          <select value={time} onChange={e => setTime(e.target.value)} className="border border-emerald-200 rounded-xl px-3 py-2 text-sm flex-1 min-w-[130px] bg-white/80">
             {TIMES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
       </div>
 
-      <div className="rounded-xl overflow-hidden shadow-sm border mb-4" style={{ height: '400px' }}>
-        <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+      <div className="rounded-2xl overflow-hidden shadow-lg border border-emerald-100 mb-4" style={{ height: '380px' }}>
+        <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={true} style={{ height:'100%', width:'100%' }}>
           <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <MapClickHandler onMapClick={handleMapClick} clickMode={clickMode} />
-          {userPos && (<Marker position={[userPos.lat, userPos.lng]} icon={userIcon}><Popup><div className="text-sm"><strong>Lokasi Anda</strong><br/><span className="text-gray-500 text-xs">{userPos.lat.toFixed(4)}, {userPos.lng.toFixed(4)}</span></div></Popup></Marker>)}
+          {userPos && (<Marker position={[userPos.lat, userPos.lng]} icon={userIcon}><Popup><div className="text-sm"><strong>Lokasi Anda</strong></div></Popup></Marker>)}
           {userPos && <RecenterMap lat={userPos.lat} lng={userPos.lng} />}
           {filteredMasjid.map(m => (
             <Marker key={m.id} position={[m.latitude, m.longitude]} icon={masjidIcon}>
-              <Popup><div className="text-sm min-w-[180px]"><strong className="text-emerald-700">{m.name}</strong><br/><span className="text-gray-500">{m.district}</span><br/><span className="text-gray-400 text-xs">{m.address}</span><br/><span className="text-xs text-emerald-600 font-medium">{m.type === 'surau' ? 'Surau' : 'Masjid'}</span></div></Popup>
+              <Popup><div className="text-sm min-w-[180px]"><strong className="text-emerald-700">{m.name}</strong><br/><span className="text-gray-500">{m.district}</span><br/><span className="text-xs text-gray-400">{m.address}</span></div></Popup>
             </Marker>
           ))}
         </MapContainer>
       </div>
 
-      {userPos && <p className="text-xs text-gray-500 mb-3">&#x1F4CD; Lokasi: {userPos.lat.toFixed(4)}, {userPos.lng.toFixed(4)} — <button onClick={() => setUserPos(null)} className="text-red-500 underline">Buang lokasi</button></p>}
+      {userPos && <p className="text-xs text-gray-500 mb-3">&#x1F4CD; {userPos.lat.toFixed(4)}, {userPos.lng.toFixed(4)} — <button onClick={() => setUserPos(null)} className="text-red-500 underline">Buang</button></p>}
 
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-emerald-800">Kuliah Berdekatan ({filteredKuliah.length})</h2>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border rounded-lg px-2 py-1 text-sm">
+        <h2 className="font-bold text-emerald-800 text-lg">Kuliah ({filteredKuliah.length})</h2>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="border border-emerald-200 rounded-xl px-2 py-1.5 text-sm bg-white/80">
           <option value="soonest">Paling Awal</option><option value="nearest">Paling Dekat</option>
         </select>
       </div>
 
       {filteredKuliah.length === 0 ? (
-        <div className="text-center py-12 text-gray-400"><Clock className="w-12 h-12 mx-auto mb-3" /><p>Tiada kuliah dijumpai untuk carian ini.</p></div>
+        <div className="text-center py-16 text-gray-400"><Clock className="w-12 h-12 mx-auto mb-3 opacity-50" /><p className="font-medium">Tiada kuliah dijumpai</p><p className="text-sm">Cuba tapis daerah atau jenis lain</p></div>
       ) : (
         <div className="space-y-3">
           {filteredKuliah.map(k => (
-            <Link to={`/kuliah/${k.id}`} key={k.id} className="block bg-white rounded-xl shadow-sm border p-4 hover:shadow-md transition-shadow">
+            <Link to={`/kuliah/${k.id}`} key={k.id} className="block card-glass p-4 hover:shadow-md transition-all group">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-emerald-800 truncate">{k.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-emerald-900 truncate group-hover:text-emerald-700 transition-colors">{k.title}</h3>
+                    {k.is_today && <span className="shrink-0 bg-gradient-to-r from-amber-400 to-orange-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">HARI INI</span>}
+                  </div>
+                  <p className="text-sm text-gray-600 flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                     <span className="truncate">{k.masjid_name}</span>
-                    {k.distance != null && <span className="text-emerald-600 font-medium ml-1 shrink-0">({k.distance} km)</span>}
+                    {k.distance != null && <span className="text-emerald-600 font-semibold ml-1 shrink-0">({k.distance} km)</span>}
                   </p>
                   <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5"><User className="w-3.5 h-3.5 shrink-0" />{k.ustaz_name}</p>
                 </div>
-                <div className="text-right text-xs text-gray-400 shrink-0">
-                  {k.is_today && <span className="inline-block mb-1 bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-xs font-semibold">Hari Ini!</span>}
-                  <p className="font-medium text-gray-600">{formatSchedule(k)}</p>
-                  <p>{formatTime(k.time_start)}{k.time_end ? ` - ${formatTime(k.time_end)}` : ''}</p>
-                  <span className="inline-block mt-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full text-xs">{k.kuliah_type.replace(/_/g, ' ')}</span>
+                <div className="text-right text-xs shrink-0">
+                  <p className="font-semibold text-gray-700">{formatSchedule(k)}</p>
+                  <p className="text-gray-400 mt-0.5">{formatTime(k.time_start)}{k.time_end ? ` - ${formatTime(k.time_end)}` : ''}</p>
+                  <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${getBadgeClass(k.kuliah_type)}`}>{(k.kuliah_type || '').replace(/_/g, ' ')}</span>
                 </div>
               </div>
             </Link>
