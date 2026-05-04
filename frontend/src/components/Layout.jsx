@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { MapPin, Send, Shield, LogIn, LogOut, Heart } from 'lucide-react'
+import { MapPin, Send, Shield, LogIn, LogOut, Heart, Upload } from 'lucide-react'
 import { useAuth } from '../App'
 
 export default function Layout() {
@@ -20,6 +20,10 @@ export default function Layout() {
             <Link to="/submit" className="flex items-center gap-1 hover:text-emerald-200 transition-colors px-2 py-1 rounded-lg hover:bg-emerald-600/30">
               <Send className="w-4 h-4" />
               <span className="hidden sm:inline">Hantar</span>
+            </Link>
+            <Link to="/import" className="flex items-center gap-1 hover:text-emerald-200 transition-colors px-2 py-1 rounded-lg hover:bg-emerald-600/30">
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Import</span>
             </Link>
             {user && (
               <Link to="/favorites" className="flex items-center gap-1 hover:text-emerald-200 transition-colors px-2 py-1 rounded-lg hover:bg-emerald-600/30">

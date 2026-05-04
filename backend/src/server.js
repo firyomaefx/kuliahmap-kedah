@@ -4,10 +4,14 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { db, initSchema, seedData } = require('./db');
+const Groq = require('groq-sdk');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Init Groq client (key may be absent in env — endpoint will handle gracefully)
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 // Serve static frontend (works both locally and in Docker)
 const publicPath = require('fs').existsSync(require('path').join(__dirname, '..', 'frontend', 'dist'))
@@ -308,6 +312,147 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
 
 /* ==================== HEALTH ==================== */
 app.get('/api/health', (req, res) => res.json({ status: 'OK', version: '2.0.0' }));
+
+/* ==================== AI IMPORT (Groq LLM) ==================== */
+app.post('/api/events/parse', async (req, res) => {
+  const { text, district_hint } = req.body;
+  if (!text || typeof text !== 'string' || text.trim().length < 10) {
+    return res.status(400).json({ error: 'Teks terlalu pendek. Sila tampal jadual kuliah yang lebih lengkap.' });
+  }
+  if (!groq) {
+    return res.status(503).json({ error: 'Servis AI tidak tersedia. Pastikan GROQ_API_KEY diatur.' });
+  }
+
+  const KULIAH_TYPES = ['kuliah_maghrib','kuliah_subuh','ceramah_khas','tazkirah','kuliah_muslimat','kuliah_jumaat'];
+  const RECURRENCE_TYPES = ['one_time','weekly','monthly'];
+
+  const systemPrompt = `Anda adalah pembantu AI untuk aplikasi "KuliahMap Kedah" yang menjadualkan kuliah dan ceramah di masjid/surau di Kedah, Malaysia.
+
+Tugas: Analisis teks jadual kuliah yang diberikan oleh pengguna dan ekstrak setiap kuliah sebagai objek JSON.
+
+Setiap rekod mesti mempunyai medan berikut:
+- masjid_name (string, wajib): Nama masjid atau surau.
+- address (string, opsional): Alamat kampung/taman/bandar jika ada.
+- district (string, wajib): Nama daerah di Kedah antara: Kota Setar, Kuala Muda, Kubang Pasu, Kulim, Langkawi, Padang Terap, Pendang, Pokok Sena, Sik, Baling, Bandar Baharu, Yan. Jika daerah tidak dinyatakan, gunakan daerah hint jika ada, jika tidak gunakan pendekatan logik berdasarkan nama kampung/masjid, jika masih tidak pasti gunakan "Kulim".
+- title (string, wajib): Tajuk kuliah. Jika tiada tajuk, buat tajuk generic seperti "Kuliah Maghrib"/"Tazkirah"/"Ceramah Khas".
+- ustaz_name (string, wajib): Nama penceramah. Jika tiada nama, guna "-".
+- description (string, opsional): Penerangan tambahan.
+- kuliah_type (string, wajib): Salah satu: kuliah_maghrib, kuliah_subuh, ceramah_khas, tazkirah, kuliah_muslimat, kuliah_jumaat.
+- date (string ISO YYYY-MM-DD, opsional): Hanya jika satu kali dan tarikh jelas. Jika tidak pasti/null, guna null.
+- time_start (string HH:MM, wajib): Masa mula. Jika tiada masa eksplisit, infer daripada jenis kuliah (kuliah_maghrib biasanya 19:15, kuliah_subuh 05:30, isyak 20:30).
+- time_end (string HH:MM, opsional): Masa tamat jika dinyatakan.
+- recurrence (string, wajib): Salah satu: one_time, weekly, monthly. Jika teks menyatakan "setiap hari Isnin", gunakan weekly.
+- recurrence_day (string, opsional): Salah satu: monday,tuesday,wednesday,thursday,friday,saturday,sunday. Hanya jika weekly/bulanan dan hari dinyatakan.
+- contact_phone (string, opsional): Nombor telefon jika ada.
+
+RULES:
+1. Jika masjid sama ada beberapa sesi pada masa berbeza, hasilkan satu rekod untuk setiap sesi (beza time_start).
+2. Ustaz/ustazah perempuan boleh didedahkan melalui nama atau konteks ("penceramah": "Ustazah Siti" → "ustaSiti", dsb).
+3. Jangan mengada-ada maklumat yang tidak wujud dalam teks.
+4. Output mestilah JSON sah mengikut format di bawah.
+
+Output format (JSON sah sahaja, tanpa markdown code block, tanpa teks ringkasan):
+{
+  "events": [ { ...record... }, { ...record... } ]
+}`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.2,
+      max_tokens: 4096,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: district_hint ? `Daerah: ${district_hint}\n\n${text.trim()}` : text.trim() }
+      ]
+    });
+
+    const raw = completion.choices?.[0]?.message?.content || '';
+    // Try to extract JSON even if wrapped in markdown
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(raw);
+
+    if (!Array.isArray(parsed.events)) {
+      return res.status(422).json({ error: 'LLM tidak mengembalikan senarai events.', raw });
+    }
+
+    // Validate and sanitize each event
+    const sanitized = parsed.events.map((ev, idx) => ({
+      masjid_name: String(ev.masjid_name || '').trim() || `Rekod ${idx + 1}`,
+      address: String(ev.address || '').trim() || null,
+      district: KEDAH_DISTRICTS.includes(ev.district) ? ev.district : (district_hint && KEDAH_DISTRICTS.includes(district_hint) ? district_hint : 'Kulim'),
+      title: String(ev.title || '').trim() || 'Kuliah',
+      ustaz_name: String(ev.ustaz_name || '').trim() || '-',
+      description: String(ev.description || '').trim() || null,
+      kuliah_type: KULIAH_TYPES.includes(ev.kuliah_type) ? ev.kuliah_type : 'kuliah_maghrib',
+      date: ev.date && /^\d{4}-\d{2}-\d{2}$/.test(String(ev.date)) ? ev.date : null,
+      time_start: String(ev.time_start || '19:15').trim(),
+      time_end: ev.time_end && /^\d{2}:\d{2}$/.test(String(ev.time_end)) ? ev.time_end : null,
+      recurrence: RECURRENCE_TYPES.includes(ev.recurrence) ? ev.recurrence : 'weekly',
+      recurrence_day: ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].includes(ev.recurrence_day) ? ev.recurrence_day : null,
+      contact_phone: String(ev.contact_phone || '').trim() || null
+    }));
+
+    res.json({ events: sanitized });
+  } catch (err) {
+    console.error('Groq parse error:', err);
+    res.status(500).json({ error: 'Ralat semasa menganalisis teks dengan AI.', detail: err.message });
+  }
+});
+
+app.post('/api/events/bulk', authMiddleware, adminMiddleware, async (req, res) => {
+  const { events } = req.body;
+  if (!Array.isArray(events) || events.length === 0) {
+    return res.status(400).json({ error: 'Sila berikan senarai events.' });
+  }
+  const inserted = [];
+  const failed = [];
+
+  for (const ev of events) {
+    try {
+      const handleInsert = (masjidId) => {
+        return new Promise((resolve, reject) => {
+          db.run(
+            `INSERT INTO kuliah (masjid_id, title, ustaz_name, description, kuliah_type, date, time_start, time_end, recurrence, recurrence_day, contact_phone, status)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,'approved')`,
+            [masjidId, ev.title, ev.ustaz_name, ev.description||null, ev.kuliah_type, ev.date||null, ev.time_start, ev.time_end||null, ev.recurrence||'weekly', ev.recurrence_day||null, ev.contact_phone||null],
+            function(err) {
+              if (err) reject(err);
+              else resolve({ id: this.lastID, masjid_id: masjidId });
+            }
+          );
+        });
+      };
+
+      // Try to find existing masjid by normalized name
+      const normalized = ev.masjid_name.toLowerCase().replace(/surau|masjid/g, '').trim();
+      const row = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM masjid WHERE LOWER(REPLACE(REPLACE(name, "surau", ""), "masjid", "")) LIKE ?', [`%${normalized}%`], (err, r) => {
+          if (err) reject(err); else resolve(r);
+        });
+      });
+
+      let masjidId;
+      if (row) {
+        masjidId = row.id;
+      } else {
+        // Insert new masjid with 0,0 lat/lng
+        masjidId = await new Promise((resolve, reject) => {
+          db.run('INSERT INTO masjid (name, address, district, latitude, longitude, type) VALUES (?,?,?,?,?,?)',
+            [ev.masjid_name, ev.address||'', ev.district||'Kulim', 0, 0, 'masjid'],
+            function(err) { if (err) reject(err); else resolve(this.lastID); });
+        });
+      }
+
+      const result = await handleInsert(masjidId);
+      inserted.push({ ...ev, ...result });
+    } catch (err) {
+      failed.push({ event: ev, error: err.message });
+    }
+  }
+
+  res.json({ success: true, inserted_count: inserted.length, failed_count: failed.length, inserted, failed });
+});
 
 /* ==================== SPA Fallback (must be last) ==================== */
 app.use((req, res) => {

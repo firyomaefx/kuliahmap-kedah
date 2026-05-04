@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Home from './pages/Home'
 import KuliahDetail from './pages/KuliahDetail'
 import SubmitKuliah from './pages/SubmitKuliah'
+import ImportKuliah from './pages/ImportKuliah'
 import Admin from './pages/Admin'
 import Auth from './pages/Auth'
 import api from './api'
@@ -54,6 +55,7 @@ export default function App() {
           <Route index element={<Home />} />
           <Route path="kuliah/:id" element={<KuliahDetail />} />
           <Route path="submit" element={<SubmitKuliah />} />
+          <Route path="import" element={<ImportKuliah />} />
           <Route path="auth" element={<Auth />} />
           <Route path="admin" element={<Admin />} />
           <Route path="privacy" element={<PrivacyPolicy />} />
