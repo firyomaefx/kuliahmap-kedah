@@ -1,11 +1,14 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { db, initSchema, seedData } = require('./db');
 const Groq = require('groq-sdk');
 const { computeNextDate, isOccurringToday } = require('./recurrence');
+const wss = require('./websocket');
+const cron = require('./cron');
 
 const app = express();
 app.use(cors());
@@ -165,6 +168,8 @@ app.post('/api/kuliah/submit', (req, res) => {
         [masjidId, title, ustaz_name, description||null, kuliah_type, date||null, time_start, time_end||null, recurrence||'one_time', recurrence_day||null, contact_phone||null],
         function(err2) {
           if (err2) return res.status(500).json({ error: err2.message });
+          const newKuliah = { id: this.lastID, title, ustaz_name, kuliah_type, time_start, recurrence: recurrence||'one_time' };
+          wss.broadcastNewSubmission(newKuliah);
           res.json({ success: true, id: this.lastID, message: 'Jadual kuliah berjaya dihantar untuk disemak.' });
         });
     };
@@ -292,6 +297,7 @@ app.put('/api/admin/submissions/:id', authMiddleware, adminMiddleware, (req, res
   if (!['approved','rejected'].includes(status)) return res.status(400).json({ error: 'Status tidak sah' });
   db.run("UPDATE kuliah SET status = ? WHERE id = ?", [status, req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
+    wss.broadcastKuliahUpdate(status === 'approved' ? 'approved' : 'rejected', { id: req.params.id, status });
     res.json({ success: true, changes: this.changes });
   });
 });
@@ -317,6 +323,7 @@ app.put('/api/admin/masjid/:id', authMiddleware, adminMiddleware, (req, res) => 
 app.delete('/api/admin/kuliah/:id', authMiddleware, adminMiddleware, (req, res) => {
   db.run('DELETE FROM kuliah WHERE id = ?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
+    wss.broadcastKuliahUpdate('deleted', { id: req.params.id });
     res.json({ success: true, changes: this.changes });
   });
 });
@@ -485,4 +492,7 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = http.createServer(app);
+wss.init(server);
+cron.start();
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

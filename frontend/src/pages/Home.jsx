@@ -3,9 +3,10 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 're
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Link } from 'react-router-dom'
-import { MapPin, Clock, User, Navigation, Crosshair, Search, Heart, AlertTriangle } from 'lucide-react'
+import { MapPin, Clock, User, Navigation, Crosshair, Search, Heart, AlertTriangle, Bell, BellRing } from 'lucide-react'
 import api from '../api'
 import { useAuth } from '../App'
+import useWebSocket from '../hooks/useWebSocket'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
@@ -103,6 +104,8 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('soonest')
   const [clickMode, setClickMode] = useState(false)
   const [favorites, setFavorites] = useState([])
+  const { lastEvent, connected } = useWebSocket()
+  const [liveNotice, setLiveNotice] = useState('')
 
   useEffect(() => { api.get('/masjid').then(r => setMasjidList(r.data)).catch(() => {}) }, [])
   useEffect(() => { fetchKuliah() }, [district, type, time, userPos])
@@ -112,6 +115,20 @@ export default function Home() {
         .then(r => setFavorites(r.data.map(f => f.id))).catch(() => {})
     }
   }, [user])
+  useEffect(() => {
+    if (!lastEvent) return
+    if (lastEvent.type === 'kuliah_update') {
+      const { action } = lastEvent.data
+      setLiveNotice(action === 'approved' ? 'Kuliah baru diluluskan!' : action === 'deleted' ? 'Kuliah dipadam.' : 'Jadual dikemas kini.')
+      fetchKuliah()
+    } else if (lastEvent.type === 'new_submission') {
+      setLiveNotice('Hantaran baru diterima.')
+    } else if (lastEvent.type === 'geocode_update') {
+      fetchKuliah()
+    }
+    const t = setTimeout(() => setLiveNotice(''), 5000)
+    return () => clearTimeout(t)
+  }, [lastEvent])
 
   function fetchKuliah() {
     const params = {}
@@ -197,6 +214,13 @@ export default function Home() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-4">
       <p className="text-center text-emerald-700 font-medium mb-3 text-sm">Cari Kuliah & Ceramah Berdekatan Anda</p>
+
+      {liveNotice && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-lg mb-3 text-sm flex items-center gap-2 animate-pulse">
+          <BellRing className="w-4 h-4 shrink-0" />
+          {liveNotice}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border p-4 mb-4 space-y-3">
         <div className="flex gap-2 items-center">
