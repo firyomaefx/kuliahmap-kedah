@@ -1,0 +1,492 @@
+LANGKAWI:
+1: surau tsunami kuala teriang
+*ustaz muhamad helmi bin yusuf
+CHANLUNG:
+1: masjid ihya ulumuddin, pekan changlun
+*ustaz abdullah bin sofi
+~al azkar
+2: masjid al ridzwaniah, batu 4, jalan changlun
+*ustaz raja abdul mutalib bin raja yusuf
+~ tajwid
+AYER HITAM:
+1: masjid ar rahman kerpan
+* ustaz attan thowi
+~fekah
+JITRA:
+1:masjid sharifah fatimah (masjid kemunting)
+* ustaz shukri bin ahmad
+~ tazkiyatun nafs
+2: masjid al muttaqin bandar darulaman
+* ustaz zahir bin osman
+~ al jauhar al mauhud
+3:masjid tuan guru haji salleh, kampung lubuk kawah
+* ustaz azamuddin bin zainuddin
+~ bahrul mazi jld 3
+4: surau haji osman kampung teluk nibong
+* ustaz razak ahmad
+~ matlaal badrin
+5: surau nur muhammadi taman pulasan
+*tuan guru ahmad bin abdullah
+~bidayatul hidayah
+6: masjid al ikhlas taman tunku sarina
+* ustaz mohamad amir nasif mustafa
+~40 hadis kelebihan ilmu dan ulama
+7: masjid al falah taman suria
+*ustaz amar maaruf bin hj ahmad
+~ talaqqi al quran
+8: masjid al fateh, tanjung pauh
+* ustaz syuhaimi zakaria
+~ tajwid juz amma
+9: masjid sayyidina Othman, alor biak
+* ustaz rizal bin daud
+~ tajwid
+10: masjid abu ubaidah, binjal
+* ustaz fazli
+11:masjid pekan tunjang
+* ustaz haji raof
+12: surau al husna, taman delima
+*ustaz mohd syazmizi bin haji nik sin
+KUALA NERANG:
+1:surau an nur taman akasia
+* sheikh mohd nazrul bin ahmad nasir
+~ hikam imam kurdi
+2: surau tanjung luar, pedu
+*ustaz zamri che teh
+PADANG TERAP:
+1: masjid tanjung kiri
+* haji mohd sougelail bin harun
+~ farduain
+KEPALA BATAS:
+1: masjid jame al shabab
+* ustaz muhd hafez bin salleh
+~ tasawuf
+ALOR STAR:
+1:masjid tandop
+* ustaz johari murad
+~mutiara minhajul abidin
+2:masjid negeri masjid zahir
+*sheikh mawarzi bin haji dziyauddin
+~al mafhum fil hal masailil al imam wal makmum
+3: masjid al irfan, derga
+* ustaz helmi as syafie
+~ kifayatul muhtadi
+4:surau darusshifa, jln sultanah tmn mutiara
+*ustaz muzaffar
+~ permata tauhid
+5: masjid al wahdatul islamiah, taman bersatu
+* ustaz mohd hafiz omar
+~wabak sepanjang jalan
+6: masjid al lutfi, suka menanti
+* dato haji abd rahman
+~ fekah
+7: masjid al badar jalan langgar
+*ustaz othman azumi ahmad
+~ akhlak seorang muslim
+8: surau nurul iman taman serindit
+* ustaz hamdi ishak
+~ faraid
+9:masjid ubudiyyah mergong
+*ustaz muhammad syamir bin sheikh zainol asri
+~40 wasiat penghulu seluruh umat jilid 2
+10: masjid az zaharah, taman mergong jaya fasa 1
+* ustaz hazlee ku shaari
+~ perisai bagi sekelian mukallaf
+11:surau taman rakyat, lebuhraya sultanah bahiyah
+* sheikh kodri bin abd hamid
+~Al quran / talaqqi
+12: masjid aman simpang kuala
+* ustaz hassan basri
+~tafsir Al quran jld 5
+13: masjid al hidayah bukit pinang
+* sheikh fakhrurazi bin yub
+~ al azkar
+14: masjid al ihsan, seberang perak, tongkang yard
+*ustaz abd rahman bin saad
+15: masjid rafeah taman uda
+*ustaz faizal
+~ munyatul musolli
+16: masjid al hussain, seberang pumpong
+* prof amin al jarumi
+~ bicara ad din
+17: masjid syed muhammad al bukhori pantai johor
+* ustaz sabudin jaafar
+~ tafsir nurul ihsan jld 1
+18: masjid halim shah, pantai johor
+*ustaz abdul rahman bin bahari
+~ bidayaul mubtadi wa umdatul aulad
+19: masjid pondok darul hidayah
+* ustaz adnan abdul wahab
+~ pelita penuntut
+20: masjid taman aman, anak bukit
+* ustaz dr muhammad hazli bin ismail
+~ adab-adab Al quran
+21:masjid as solihin taman muhibbah, jalan sultanah bahiyah
+*ustaz abu khair ayub
+22: surau taman rasa sayang
+* ustaz rizal abd halim
+~ sifat 20
+23: masjid al mahmudi, kampung padang lalang
+*ustaz azhari hamzah
+24: masjid Hidayatul solihin sungai baru gunung
+* ustaz zamzuri bin hj zainol abidin
+~ tahsin Al quran
+25: masjid kampung berjaya
+* ustaz shahidan baharom
+26: masjid nurul iman, kampung kubang bongor, alor janggus
+*ustaz kamaruddin
+~ tafsir
+27: masjid at taqwa taman pknk
+*ustaz hanif zainol
+~penawar bagi hati
+28: masjid jamek hutan kampung
+* ustaz haji ruslim
+29: masjid al bukhori alor malai
+* ustaz abdullah azraei
+~ sairus Salikin
+30:masjid al iman alor madi
+* sheikh dr hazizan bin md desa
+31:masjid al hidayah, taman nuri
+* ustaz abu bakar bin razak
+~ indahnya akhlak Rasulullah
+32: masjid taman seri permai
+*ustaz dr mohd murshidi bin mohd noor
+~ idaman penuntut
+33: masjid al hasanah, kariah ampang jajar
+* sheikh yusuf bin ahmad
+~ bahrul mazi jilid 17
+34: masjid al ittifaq, kariah peremba, kuala kedah
+*ustaz akram zaki bin abd rahim
+~ targhib wal al tarhib
+35: masjid tunku intan safinaz, anak bukit
+*ustaz kapten ahmad nasir bin hasan
+~nasihat agama dan wasiat iman
+36: masjid rayatul islam, kubang siam, alor janggus
+*ustaz haji alauddin
+~ bidayatul hidayah
+37: masjid putra, kariah tok pasai, kuala Kedah
+* ustaz ridzuan as sudaisi
+~ solat sunat tasbih
+PENDANG:
+1:masjid jamiur rahman, kampung tempoyak
+*ustaz mat nasir che tam
+~ tahsin al quran
+2: masjid nurul ehsan pekan tanah merah
+*ustaz hj mohd azlan
+~ al jawahir as sufiyyah
+3: masjid jamek tuan guru haji abdul Aziz pendang
+* dr mohd ammar
+~ al wafi
+4: masjid al huda, alor pudak, tobiar
+*ustaz hissamuddin
+~ syarah la haula wala quwwata ila billah
+YAN:
+1: masjid al wustha guar chempedak
+* ustaz mohd taufik bin mohamed yusuf
+~ 40 hadis qursi
+2: masjid at thohiriah kampung sungai lentang mukim dulang
+*ustaz bukhori yahman
+~ tafsir surah yaasin
+3: masjid jame badlishah pekan yan
+* ustaz yaziz
+~ tanbihul ghafillin
+4: masjid ubudiah, padang lumat
+*ustaz yahya bakhir ibni hajar
+~ fathul muin
+GURUN:
+1: masjid pekan gurun
+*ustaz azfar abdullah
+~ nasihat agama dan wasiat iman
+2:masjid tmn ria mesra 2 bt5, jln jeniang
+*ustaz ramli idris
+~perisai bagi sekelian mukallaf
+3: masjid al othmaniah, batu 3, jln jeniang
+* ustaz zaini hamid
+~fathul qarib
+4: surau perwaja
+*ustaz amirul saiful bin azhar
+5: masjid sri jerai
+*ustaz muhammad
+6: masjid al khariyyah, bedong
+*ustaz ishafudin
+SUNGAI PETANI:
+1:masjid padang temusu
+* ustaz ahmad nasir bin awang
+~ fiqh kenegaraan
+2:masjid taman keladi
+* ustaz naim bin md salleh
+~ bidayatul hidayah
+3:masjid kampung raja
+*ustaz zikri bin ghazali
+~ hadis tanggungjawab kepada ibubapa
+4:masjid al majidi (masjid kuning), sungai layar hujung
+* ustaz abdullah awwab bin mohamad
+5:masjid sultan abdul halim, tmn ria jaya
+*ustaz muallif bin abd majid
+~ syamail sharifah
+6:masjid taman peruda
+*ustaz ikmal najib
+~ syarah burdah
+7: masjid bandar puteri jaya
+* ustaz zubair bin abdul rahman
+~ minhajul abidin
+8: surau taman sejati
+* ustaz nur siddiq mohammad
+~ ulum quran
+9: masjid as salam kariah teluk wang
+*ustaz shah shanmugam bin abdullah
+~ syamail muhammadiah
+10:masjid al ikhlas, pulau sepom, tikam batu
+*ustaz fiddin
+~ hadis
+11: surau al ikhwan, bandar sri astana fasa B & C
+*ustaz hasbullah
+~ faridah aqidah
+12: surau al ikhwan, tmn ria jaya
+*ustaz fazli haji talib
+~ fathul muin
+13:masjid al maghfirah, kariah tmn kelisa ria
+*ustaz mohd ridzauddin bin yaakub
+~ kehebatan Rasulullah
+14:masjid an nur, taman intan
+* ustaz anizan ahmad
+15:masjid kota raja, kota kuala muda
+* ustaz muhd nizam bin azizan
+~nurul hidayah
+16: masjid kariah bandar perdana
+* dr redho
+~tajwid
+17:masjid al muttaqin, taman ria
+*ustaz shahrizan hazami
+~ riyadhus solihin
+18:masjid ibrahim, penghulu him
+* ustaz zamri bakar
+~ 40 hadis amalan sedikit, pahala berganda
+19: masjid al khalidiah, kampung permatang pasir, tikam batu
+* ustaz zulkifli noh
+~sirah
+20: masjid al barakah, tikam batu
+* ustaz abu qasim
+~qatrul qhoisiah
+21: masjid nurul hasanah kampung bukit kechil, simpor
+*ustaz nawawee bin soleh
+22:masjid sultan abdul halim batu 2, jln kuala ketil
+* ustaz faisol hashim
+~ bahrul mazi jld 1
+23:masjid permatang berangan
+* ustaz jamaluddin ahmad
+24: masjid al muhajirin, taman bandar baru, sungai lalang
+* ustaz haji che halim
+~ qaulu tam fil ahkam al makmum wal imam
+25:surau ar rahman bandar utama
+* ustaz ahmad
+~ al quran ijtimaie & hidayatus salikin
+26: masjid al mubarak kampung pantai prai
+* ustaz yusdi md piah
+~hadis qursi
+27: surau at taqwa, zon anggerik bandar aman jaya
+* ustaz hidayat hamzah
+~ tafsir surah yusuf
+28: masjid al abidi kampung pasir jernih merbok
+* ustaz a rahim
+~ tafsir al quran
+29: masjid al imam nawawi ambangan heights
+* ustaz yusuf yaakub
+~ fiqh manhaji
+30:surau al muhsinin, taman seri bayu, sungai lalang
+*ustaz amir lukman bin ahmad fauzi
+31: surau al muhajirin, zon anggerik bandar aman jaya
+* ustaz muhammad uzair
+~ bahrul mazi jld 17
+32:masjid sultan muzaffar shah
+* ustaz umar zainal abidin
+~ nur al fahmi
+33:masjid az zuhri, semeling
+* ustaz abu bakar che doi
+~ fiqh ibadah
+34: masjid permatang gedong
+* ustaz syuwairi ishak
+35:masjid al fatimah, kariah sungai pial
+*ustaz nur muhamad hanif bin muhd nasir
+~ kitab asas Al quran
+36: masjid saidina Bilal ar rabah pengkalan lebai man
+* yb ustaz hanif bin ghazali
+~ tafsir nurul ihsan
+37: masjid andalusia bandar laguna merbok
+* ustaz khairul azhar bin ghazali
+~ cahaya pengenalan
+38: surau an najah, taman delima
+* ustaz haji mohd azizul bin ariffin
+~ paku iman
+39: masjid bakar arang
+* ustaz abu hurairah
+40: surau al iman, taman lembah bujang indah
+* ustaz salman basrin
+~ matlaal badrin
+41: masjid al atiq merbok
+* ustaz abdul rahman shafie
+~masail muhtadin
+42:masjid al amin, sungai layar
+* ustaz aswadi bin abd rahman
+~ 50 hadis pilihan amalan harian
+43: masjid kariah bandar seri astana
+* ustaz haji fattah awang
+~ al qhaulu tam fil ahkam al imam wa makmum
+44: masjid muhibbudin, sungai pasir
+* sheikh ahmad muzammil bin yub
+45: masjid at taubah, pinang tunggal
+* ustaz imran hassan
+46: surau muhammad al fateh, ambangan heights
+* ustaz noor ismail
+~1000 mukjizat
+47: surau al mukminin taman delima fasa 2
+* ustaz mohd nasbir bin yusuf
+~tafsir
+48: masjid al muqarabbin kariah alor jawi
+*ustaz mohd zaidi
+~ sifat 20 satu pengenalan
+49:surau al hidayah taman ria jaya
+* ustaz imran al hafiz
+~ bahasa arab Al quran
+50: surau al kauthar, taman merbau, tikam batu
+*ustaz lutfi bin haji hasan
+~ Al quran dan tajwid
+51:masjid jamek kariah sintok bugis, kota kuala muda
+*ustaz hazlan
+52: surau al banna, taman mutiara
+*ustaz radhi bin abu bakar
+~ tafsir juzuk amma
+53: masjid tanjung dawai
+* ustaz akmal fahim fakhrullazi
+54: surau al munawwarah, taman arked
+*ustaz mohd shahiful bin mohd nasir
+~ penawar bagi hati
+55: pondok raudhatul khalijah kampung tok nayan, bukit selambau
+*ustaz hamdan bin othman
+~ minhajul abidin
+KULIM:
+1:masjid taman selasih
+*ustaz che lah had
+~ umdatul thalib ijtihad
+2:masjid jamiur makmur, pekan kulim
+*ustaz dato kazim elias / ustaz dr jazmi bin md isa
+3:masjid sungai ular
+*ustaz ahmad hafzi
+~ bidayatul hidayah
+4:masjid tmn kenari
+* ustaz fadhil saari
+~ bidayatul hidayah
+5:masjid an najah padang serai
+* ustaz aswad bin mohd nason
+~ fiqh al sirah
+6:masjid al muhtadin, sungai seluang
+* ustaz mohammad zol marzuki
+~ faridatul faraid
+7: surau as syakirin, tmn mahsuri, padang serai
+*ustaz mokhtar hussein
+~hidayatul salikin
+8:masjid jamek machang bubok
+* ustaz osman marbawi
+~ 40 hadis peristiwa akhir zaman
+9:masjid al muqarrabin taman angsana
+*ustaz umar ibrahim
+~ ittiqaq ahli sunnah Waljamaah
+10:surau an nur, taman ria padang serai
+* ustaz elias muhammad
+~ hadis 40
+11:masjid al muthmainnah, jalan tunku bendahara
+*ustaz mohd iskandar
+12:surau an najihin taman tiram, lunas
+*ustaz fauzi elias
+~ tafsir al munir jld 1
+13: masjid al muhammadi, kariah taman mahsuri, padang serai
+* ustaz hafiz hashim
+~ ringkasan sirah nurul yakin
+14: masjid al mujahidin kampung batu putih
+* daie hafiz
+15:masjid muhammad al fateh, tmn mutiara, sungai kob
+*ustaz jais
+~mustika hadis 1
+16:masjid jamek sultan abdul halim sidam kiri
+* ustaz azli bin mohd nason
+~ tafsir Al quran
+17: surau iman taman nilam baiduri
+* ustaz ahmad salahuddin
+~ hadis
+18:masjid tunku abdul rahman putra sungai limau, Lunas
+*ustaz mohsin rejaluddin
+~ tanbihul ghafillin
+19:masjid darul ulum, merbau pulas
+*ustaz ghazali bin abd majid
+~ usul tahqiq
+20:masjid ghairu jamek al muhajirin taman tunku putra
+*ustaz rohaizad ghazali
+~ tafsir juzz amma
+21: masjid ara kuda
+*ustaz hasnul hisyam
+~tadabbur Al quran juz 30
+22: surau al ittihadiah taman bersatu kulim
+* ustaz abdul halim bin abdullah
+~ hadis
+23: masjid at taufiq, ayer merah
+*ustaz ahmad shamimi bin senawi
+~ al azkar
+24: balai islam, padang mahligai, sidam kiri
+*cikgu rosli bashah
+~ 26 pintu syurga
+25: masjid an najah taman jati
+* ustaz shahporizal
+~ jauharah tauhid
+26: masjid Sayyidina Uthman ibn affan, kariah paya besar, lunas
+* ustaz mohd faizal
+~idaman penuntut
+27: surau al muttaqin, taman lagenda fasa padang serai
+* ustaz hj mohd kamil mahdzir
+~ al jauhar al mauhud
+28: masjid al fateh, serdang
+* ustaz roslan ayob
+~sifat 20
+29: surau as salam taman lagenda padang serai
+* ustaz suhaimi ismail
+~ apa erti saya menganut islam
+30:kompleks islam darul faizin (KIDAF), bandar baharu serdang
+* ustaz shahul hamid
+31:masjid jamek nurussaadah kariah taman sejahtera, lunas
+*ustaz nasrun othman
+~bimbingan mukminin
+32: masjid jamek saidina Ali batalion 2 kem pga jalan junjung
+*ustaz syafiq
+~ sirah Nabi Muhammad SAW
+33: masjid ar raudhah, terap
+* ustaz zulkifli
+~ aqidah muslim
+34: surau al ehsan, taman serai setia, padang serai
+* ustaz hakim bin azizan
+~ bahrul mazi jilid 13
+35: masjid al barakah, selama
+* ustaz mohd yusri bin abdullah
+36: surau al hana taman makmur, lunas
+* ustaz shaharuddin ibrahim
+~ syamail Muhammadiah
+37: surau al ittihad kulim perdana
+*ustaz takiyuddin sukeri
+~ aqidatun najin
+38: pasti al ikhwan, kampung keladi
+* yb ustaz shahir long
+~ huraian asma ulhusna
+39: masjid abdul rahman putra, qaryah keladi
+*ustaz afiq hadi
+~hadis 40 imam Nawawi
+BALING:
+1:masjid jamek kuala ketil
+* ustaz nasser
+~ riyadhus solihin jld 1
+2:masjid ehsaniah, kupang
+*ustaz shukri
+3:masjid al fateh, kuala pegang
+* ustaz azizan
+~ syamail Muhammadiah
+4: masjid ridzwaniah, pekan baling
+*ustaz zurin bin haji shaari
+~ tafsir
+5: masjid islahiah, pekan tawar
+*ustaz mohd nazmi bin abdul ghani
