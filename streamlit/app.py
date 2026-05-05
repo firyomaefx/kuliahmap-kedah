@@ -1,7 +1,7 @@
 import streamlit as st
 st.set_page_config(
     page_title="KuliahMap Kedah",
-    page_icon="🕌",
+    page_icon="K",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -226,25 +226,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🕌 KuliahMap Kedah")
+st.title("KuliahMap Kedah")
 st.caption("Cari Kuliah & Ceramah Berdekatan Anda di Negeri Kedah")
 
 # Sidebar
 with st.sidebar:
-    st.header("🔍 Tapis Carian")
+    st.header("Tapis Carian")
     district = st.selectbox("Daerah", ["Semua"] + DISTRICTS)
     ktype = st.selectbox("Jenis Kuliah", ["Semua"] + list(TYPE_LABELS.values()))
     time_filter = st.selectbox("Masa", ["Semua", "Hari Ini", "Minggu Ini", "Bulan Ini"])
     search = st.text_input("Cari ustaz, masjid, tajuk...")
     
     st.markdown("---")
-    st.header("📍 Lokasi Anda")
+    st.header("Lokasi Anda")
     use_gps = st.checkbox("Guna GPS (klik dua kali pada peta)")
     user_lat = st.number_input("Latitud", value=5.3650, format="%.6f")
     user_lng = st.number_input("Longitud", value=100.5556, format="%.6f")
 
 # Map
-st.subheader("🗺️ Peta Masjid & Surau")
+st.subheader("Peta Masjid & Surau")
 center = [user_lat, user_lng] if use_gps else [5.3650, 100.5556]
 zoom = 12 if use_gps else 10
 m = folium.Map(location=center, zoom_start=zoom, tiles="OpenStreetMap")
@@ -269,11 +269,11 @@ if map_data and map_data.get("last_clicked"):
     clicked = map_data["last_clicked"]
     user_lat = clicked["lat"]
     user_lng = clicked["lng"]
-    st.success(f"📍 Lokasi dipilih: {user_lat:.4f}, {user_lng:.4f}")
+    st.success(f"Lokasi dipilih: {user_lat:.4f}, {user_lng:.4f}")
     st.rerun()
 
 # Kuliah list
-st.subheader("📋 Senarai Kuliah")
+st.subheader("Senarai Kuliah")
 
 type_map_rev = {v:k for k,v in TYPE_LABELS.items()}
 kuliah_list = get_kuliah(conn,
@@ -297,11 +297,11 @@ else:
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.markdown(f"**{k['title']}**  ")
-                st.markdown(f"🕌 {k['masjid_name']} | 👤 {k['ustaz_name']}")
-                st.markdown(f"📅 {format_schedule(k)} | ⏰ {format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}")
-                st.markdown(f"🏷️ `{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}`")
+                st.markdown(f"{k['masjid_name']} | {k['ustaz_name']}")
+                st.markdown(f"{format_schedule(k)} | {format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}")
+                st.markdown(f"`{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}`")
                 if k.get("distance") is not None:
-                    st.markdown(f"📏 **{k['distance']} km** dari lokasi anda")
+                    st.markdown(f"**{k['distance']} km** dari lokasi anda")
             with col2:
                 if st.button("Lihat Detail", key=f"btn_{k['id']}"):
                     st.session_state.selected_kuliah = k["id"]
@@ -310,17 +310,17 @@ else:
 
 # Detail view
 if "selected_kuliah" in st.session_state and st.session_state.selected_kuliah:
-    st.subheader("📖 Butiran Kuliah")
+    st.subheader("Butiran Kuliah")
     k = get_kuliah_by_id(conn, st.session_state.selected_kuliah)
     if k:
         col1, col2 = st.columns([2, 1])
         with col1:
             st.markdown(f"### {k['title']}")
-            st.markdown(f"🕌 **{k['masjid_name']}** ({k['district']})")
-            st.markdown(f"👤 {k['ustaz_name']}")
-            st.markdown(f"📅 {format_schedule(k)}")
-            st.markdown(f"⏰ {format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}")
-            st.markdown(f"🏷️ {TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}")
+            st.markdown(f"**{k['masjid_name']}** ({k['district']})")
+            st.markdown(f"{k['ustaz_name']}")
+            st.markdown(f"{format_schedule(k)}")
+            st.markdown(f"{format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}")
+            st.markdown(f"{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}")
             if k["description"]:
                 st.markdown(f"> {k['description']}")
             if k["address"]:
@@ -332,20 +332,20 @@ if "selected_kuliah" in st.session_state and st.session_state.selected_kuliah:
             
             waze = f"https://waze.com/ul?ll={k['latitude']},{k['longitude']}&navigate=yes"
             gmaps = f"https://www.google.com/maps/dir/?api=1&destination={k['latitude']},{k['longitude']}"
-            st.link_button("🗺️ Buka Waze", waze, type="secondary")
-            st.link_button("📍 Google Maps", gmaps, type="secondary")
+            st.link_button("Buka Waze", waze, type="secondary")
+            st.link_button("Google Maps", gmaps, type="secondary")
         
         share_text = f"{k['title']} oleh {k['ustaz_name']} di {k['masjid_name']}"
         wa = f"https://wa.me/?text={share_text.replace(' ', '%20')}"
-        st.link_button("📤 Kongsi WhatsApp", wa, type="secondary")
+        st.link_button("Kongsi WhatsApp", wa, type="secondary")
         
-        if st.button("🔙 Kembali"):
+        if st.button("Kembali"):
             del st.session_state.selected_kuliah
             st.rerun()
 
 # Submit form
 st.markdown("---")
-with st.expander("📝 Hantar Jadual Kuliah Baru"):
+with st.expander("Hantar Jadual Kuliah Baru"):
     with st.form("submit_kuliah"):
         st.write("**Maklumat Masjid**")
         sm_masjid = st.text_input("Nama Masjid/Surau *", placeholder="cth: Masjid Zahir")
@@ -367,7 +367,7 @@ with st.expander("📝 Hantar Jadual Kuliah Baru"):
         sm_day = st.selectbox("Hari (jika mingguan)", [""] + list(DAY_LABELS.values())) if sm_rec == "Mingguan" else None
         sm_phone = st.text_input("No. Telefon", placeholder="012-3456789")
         
-        submitted = st.form_submit_button("✅ Hantar")
+        submitted = st.form_submit_button("Hantar")
         if submitted:
             if not all([sm_masjid, sm_title, sm_ustaz, sm_type, sm_start]):
                 st.error("Sila lengkapkan semua medan wajib (*)")
@@ -385,7 +385,7 @@ with st.expander("📝 Hantar Jadual Kuliah Baru"):
                     "contact_phone": sm_phone
                 }
                 submit_kuliah(conn, data)
-                st.success("✅ Jadual kuliah berjaya dihantar untuk disemak!")
+                st.success("Jadual kuliah berjaya dihantar untuk disemak!")
 
 st.markdown("---")
 st.caption("KuliahMap Kedah v2.0 (Streamlit) | Data oleh OpenStreetMap & Komuniti | © 2026")
