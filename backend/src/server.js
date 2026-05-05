@@ -18,8 +18,8 @@ app.use(express.json());
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 // Serve static frontend (works both locally and in Docker)
-const publicPath = require('fs').existsSync(require('path').join(__dirname, '..', 'frontend', 'dist'))
-  ? require('path').join(__dirname, '..', 'frontend', 'dist')
+const publicPath = require('fs').existsSync(require('path').join(__dirname, '..', '..', 'frontend', 'dist'))
+  ? require('path').join(__dirname, '..', '..', 'frontend', 'dist')
   : require('path').join(__dirname, '..', 'public');
 app.use(express.static(publicPath));
 

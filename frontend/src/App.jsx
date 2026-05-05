@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Routes, Route, Navigate, Outlet, Link } from 'react-router-dom'
+import { BookOpen, Send, Upload, Shield } from 'lucide-react'
 import Home from './pages/Home'
 import KuliahDetail from './pages/KuliahDetail'
 import SubmitKuliah from './pages/SubmitKuliah'
@@ -68,34 +69,35 @@ export default function App() {
 
 function Shell() {
   const { user, logout } = useAuth()
+  const navs = [{to:'/',label:'Utama',icon:BookOpen},{to:'/submit',label:'Hantar',icon:Send},{to:'/import',label:'Import',icon:Upload},{to:'/admin',label:'Admin',icon:Shield}]
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex flex-col">
       <header className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2.5">
+          <Link to="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-md">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <BookOpen size={20} className="text-emerald-700" strokeWidth={2.5}/>
             </div>
             <div className="leading-tight">
               <span className="font-extrabold text-lg tracking-tight">KuliahMap</span>
               <span className="text-emerald-300 text-xs font-medium block -mt-0.5">Kedah</span>
             </div>
-          </a>
+          </Link>
           <div className="hidden sm:flex items-center gap-1.5">
-            {[{to:'/',label:'Utama'},{to:'/submit',label:'Hantar'},{to:'/import',label:'Import'},{to:'/admin',label:'Admin'}].map(n=>(
-              <a key={n.to} href={n.to} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-emerald-200 hover:bg-white/10 hover:text-white transition-all">{n.label}</a>
+            {navs.map(n=>(
+              <Link key={n.to} to={n.to} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-emerald-200 hover:bg-white/10 hover:text-white transition-all">{n.label}</Link>
             ))}
-            <a href="/auth" className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all">Log Masuk</a>
+            <Link to="/auth" className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all">Log Masuk</Link>
           </div>
         </div>
       </header>
       <main className="flex-1 pb-20 sm:pb-4"><Outlet /></main>
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-emerald-100 z-40">
         <div className="flex justify-around items-center py-1.5 px-2">
-          {[{to:'/',label:'Utama'},{to:'/submit',label:'Hantar'},{to:'/import',label:'Import'},{to:'/admin',label:'Admin'}].map(n=>(
-            <a key={n.to} href={n.to} className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 hover:text-emerald-600 transition-colors">
-              <span className="text-[10px] font-medium">{n.label}</span>
-            </a>
+          {navs.map(n=>(
+            <Link key={n.to} to={n.to} className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 hover:text-emerald-600 transition-colors">
+              <n.icon className="w-5 h-5" /><span className="text-[10px] font-medium">{n.label}</span>
+            </Link>
           ))}
         </div>
       </nav>
