@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import Layout from './components/Layout'
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import Home from './pages/Home'
 import KuliahDetail from './pages/KuliahDetail'
 import SubmitKuliah from './pages/SubmitKuliah'
@@ -51,19 +50,56 @@ export default function App() {
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
       <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="kuliah/:id" element={<KuliahDetail />} />
-          <Route path="submit" element={<SubmitKuliah />} />
-          <Route path="import" element={<ImportKuliah />} />
-          <Route path="auth" element={<Auth />} />
-          <Route path="admin" element={<Admin />} />
-          <Route path="privacy" element={<PrivacyPolicy />} />
-          <Route path="terms" element={<Terms />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/kuliah/:id" element={<KuliahDetail />} />
+        <Route element={<Shell />}>
+          <Route path="/submit" element={<SubmitKuliah />} />
+          <Route path="/import" element={<ImportKuliah />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<Terms />} />
         </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthContext.Provider>
+  )
+}
+
+function Shell() {
+  const { user, logout } = useAuth()
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex flex-col">
+      <header className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 text-white shadow-lg sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <a href="/" className="flex items-center gap-2.5">
+            <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center shadow-md">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#047857" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+            <div className="leading-tight">
+              <span className="font-extrabold text-lg tracking-tight">KuliahMap</span>
+              <span className="text-emerald-300 text-xs font-medium block -mt-0.5">Kedah</span>
+            </div>
+          </a>
+          <div className="hidden sm:flex items-center gap-1.5">
+            {[{to:'/',label:'Utama'},{to:'/submit',label:'Hantar'},{to:'/import',label:'Import'},{to:'/admin',label:'Admin'}].map(n=>(
+              <a key={n.to} href={n.to} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-emerald-200 hover:bg-white/10 hover:text-white transition-all">{n.label}</a>
+            ))}
+            <a href="/auth" className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all">Log Masuk</a>
+          </div>
+        </div>
+      </header>
+      <main className="flex-1 pb-20 sm:pb-4"><Outlet /></main>
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-emerald-100 z-40">
+        <div className="flex justify-around items-center py-1.5 px-2">
+          {[{to:'/',label:'Utama'},{to:'/submit',label:'Hantar'},{to:'/import',label:'Import'},{to:'/admin',label:'Admin'}].map(n=>(
+            <a key={n.to} href={n.to} className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-400 hover:text-emerald-600 transition-colors">
+              <span className="text-[10px] font-medium">{n.label}</span>
+            </a>
+          ))}
+        </div>
+      </nav>
+    </div>
   )
 }
 
@@ -75,17 +111,11 @@ function PrivacyPolicy() {
         <p><strong>Terakhir dikemas kini:</strong> April 2026</p>
         <h3 className="text-lg font-semibold">Maklumat Yang Kami Kumpulkan</h3>
         <p>Kami mengumpulkan maklumat yang anda berikan secara sukarela, termasuk:</p>
-        <ul className="list-disc ml-5 space-y-1">
-          <li>Emel dan nombor telefon (untuk pendaftaran dan pengesahan)</li>
-          <li>Lokasi GPS (untuk mencari masjid berdekatan — hanya apabila anda klik butang GPS)</li>
-          <li>Maklumat penghantaran jadual kuliah</li>
-        </ul>
+        <ul className="list-disc ml-5 space-y-1"><li>Emel dan nombor telefon</li><li>Lokasi GPS</li><li>Maklumat penghantaran jadual kuliah</li></ul>
         <h3 className="text-lg font-semibold">Penggunaan Maklumat</h3>
-        <p>Maklumat anda digunakan untuk menyediakan perkhidmatan KuliahMap, menghantar notifikasi kuliah berdekatan, dan memperbaiki perkhidmatan.</p>
-        <h3 className="text-lg font-semibold">Perlindungan Data</h3>
-        <p>Kami berpegang pada Akta Perlindungan Data Peribadi (PDPA) 2010 Malaysia. Data anda disimpan dengan selamat dan tidak dikongsi dengan pihak ketiga tanpa kebenaran anda.</p>
+        <p>Maklumat anda digunakan untuk menyediakan perkhidmatan KuliahMap.</p>
         <h3 className="text-lg font-semibold">Hubungi Kami</h3>
-        <p>Sekiranya ada pertanyaan mengenai dasar privasi ini, sila hubungi kami melalui laman web ini.</p>
+        <p>Sekiranya ada pertanyaan, sila hubungi kami melalui laman web ini.</p>
       </div>
     </div>
   )
@@ -98,13 +128,9 @@ function Terms() {
       <div className="prose prose-sm text-gray-700 space-y-4">
         <p><strong>Terakhir dikemas kini:</strong> April 2026</p>
         <h3 className="text-lg font-semibold">Penggunaan Perkhidmatan</h3>
-        <p>KuliahMap Kedah menyediakan maklumat jadual kuliah dan ceramah di masjid/surau di negeri Kedah. Maklumat disediakan "seadanya" dan kami tidak menjamin ketepatan setiap jadual.</p>
-        <h3 className="text-lg font-semibold">Penghantaran Jadual</h3>
-        <p>Pengguna boleh menghantar jadual kuliah melalui borang dalam aplikasi. Semua penghantaran tertakluk kepada semakan admin sebelum dipaparkan.</p>
+        <p>KuliahMap Kedah menyediakan maklumat jadual kuliah di masjid/surau di negeri Kedah.</p>
         <h3 className="text-lg font-semibold">Peta</h3>
-        <p>Data peta disediakan oleh OpenStreetMap® dan penyumbangnya. Peta tertakluk kepada terma lesen ODbL.</p>
-        <h3 className="text-lg font-semibold">Tanggungan</h3>
-        <p>Kami tidak bertanggungan atas sebarang kerugian yang timbul daripada maklumat yang tidak tepat di dalam aplikasi ini.</p>
+        <p>Data peta disediakan oleh OpenStreetMap.</p>
       </div>
     </div>
   )
