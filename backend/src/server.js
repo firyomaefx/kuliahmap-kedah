@@ -164,13 +164,13 @@ app.post('/api/kuliah/submit', (req, res) => {
     const handleInsert = (masjidId) => {
       db.run(
         `INSERT INTO kuliah (masjid_id, title, ustaz_name, description, kuliah_type, date, time_start, time_end, recurrence, recurrence_day, contact_phone, status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending')`,
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,'approved')`,
         [masjidId, title, ustaz_name, description||null, kuliah_type, date||null, time_start, time_end||null, recurrence||'one_time', recurrence_day||null, contact_phone||null],
         function(err2) {
           if (err2) return res.status(500).json({ error: err2.message });
           const newKuliah = { id: this.lastID, title, ustaz_name, kuliah_type, time_start, recurrence: recurrence||'one_time' };
           wss.broadcastNewSubmission(newKuliah);
-          res.json({ success: true, id: this.lastID, message: 'Jadual kuliah berjaya dihantar untuk disemak.' });
+          res.json({ success: true, id: this.lastID, message: 'Jadual kuliah berjaya dimasukkan.' });
         });
     };
     if (existing) {
@@ -338,7 +338,12 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, (req, res) => {
   function check() { if (stats.masjid !== undefined && stats.kuliah_approved !== undefined) res.json(stats); }
 });
 
-/* ==================== HEALTH ==================== */
+/* ==================== PHONE VALIDATION ==================== */
+function validateMYPhone(phone) {
+  if (!phone) return false;
+  const clean = phone.replace(/\s/g, '');
+  return /^(01[0-9]{1}-[0-9]{7,8}|01[0-9]{8,9})$/.test(clean);
+}
 app.get('/api/health', (req, res) => res.json({ status: 'OK', version: '2.0.0' }));
 
 /* ==================== AI IMPORT (Groq LLM) ==================== */
@@ -366,7 +371,7 @@ Setiap rekod mesti mempunyai medan berikut:
 - ustaz_name (string, wajib): Nama penceramah. Jika tiada nama, guna "-".
 - description (string, opsional): Penerangan tambahan.
 - kuliah_type (string, wajib): Salah satu: kuliah_maghrib, kuliah_subuh, ceramah_khas, tazkirah, kuliah_muslimat, kuliah_jumaat.
-- date (string ISO YYYY-MM-DD, opsional): Hanya jika satu kali dan tarikh jelas. Jika tidak pasti/null, guna null.
+- date (string ISO YYYY-MM-DD, wajib JIKA ada tarikh dalam teks): EKSTRAK tarikh yang dinyatakan dalam teks (contoh: "5 Mei 2026", "12/05/2026", "tahun depan"). Tukar ke YYYY-MM-DD. Ini adalah tarikh berlangsung walaupun kuliah tersebut mingguan. Jika tiada tarikh langsung dalam teks, guna null.
 - time_start (string HH:MM, wajib): Masa mula. Jika tiada masa eksplisit, infer daripada jenis kuliah (kuliah_maghrib biasanya 19:15, kuliah_subuh 05:30, isyak 20:30).
 - time_end (string HH:MM, opsional): Masa tamat jika dinyatakan.
 - recurrence (string, wajib): Salah satu: one_time, weekly, monthly. Jika teks menyatakan "setiap hari Isnin", gunakan weekly.
@@ -377,7 +382,8 @@ RULES:
 1. Jika masjid sama ada beberapa sesi pada masa berbeza, hasilkan satu rekod untuk setiap sesi (beza time_start).
 2. Ustaz/ustazah perempuan boleh didedahkan melalui nama atau konteks ("penceramah": "Ustazah Siti" → "ustaSiti", dsb).
 3. Jangan mengada-ada maklumat yang tidak wujud dalam teks.
-4. Output mestilah JSON sah mengikut format di bawah.
+4. JANGAN lupa medan date — jika teks ada sebarang tarikh, pastikan diekstrak ke YYYY-MM-DD walaupun kuliah tersebut mingguan. Tarikh ini adalah tarikh pertama/berikutnya kuliah tersebut.
+5. Output mestilah JSON sah mengikut format di bawah.
 
 Output format (JSON sah sahaja, tanpa markdown code block, tanpa teks ringkasan):
 {
@@ -480,6 +486,113 @@ app.post('/api/events/bulk', authMiddleware, adminMiddleware, async (req, res) =
   }
 
   res.json({ success: true, inserted_count: inserted.length, failed_count: failed.length, inserted, failed });
+});
+
+/* ==================== AUTO INSERT (open endpoint, auto-approve) ==================== */
+app.post('/api/events/auto-insert', async (req, res) => {
+  const { text, phone, name } = req.body;
+
+  if (!text || typeof text !== 'string' || text.trim().length < 10) {
+    return res.status(400).json({ error: 'Sila tampal teks jadual kuliah.' });
+  }
+  if (!phone || !validateMYPhone(phone)) {
+    return res.status(400).json({ error: 'Sila masukkan nombor telefon Malaysia yang sah (cth: 012-3456789).' });
+  }
+  if (!groq) {
+    return res.status(503).json({ error: 'Servis AI tidak tersedia. Pastikan GROQ_API_KEY diatur.' });
+  }
+
+  try {
+    // Reuse Groq parse logic inline
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.2,
+      max_tokens: 4096,
+      messages: [
+        { role: 'system', content: `Anda adalah pembantu AI untuk aplikasi "KuliahMap Kedah" yang menjadualkan kuliah dan ceramah di masjid/surau di Kedah, Malaysia.\n\nTugas: Analisis teks jadual kuliah yang diberikan dan ekstrak setiap kuliah sebagai objek JSON.\n\nMedan:\n- masjid_name (string, wajib)\n- address (string, opsional)\n- district (string, wajib): Salah satu daerah Kedah.\n- title (string, wajib)\n- ustaz_name (string, wajib)\n- description (string, opsional)\n- kuliah_type (string, wajib): kuliah_maghrib, kuliah_subuh, ceramah_khas, tazkirah, kuliah_muslimat, kuliah_jumaat\n- date (string ISO YYYY-MM-DD, wajib JIKA ada tarikh dalam teks): EKSTRAK tarikh yang dinyatakan dalam teks — ini adalah tarikh kuliah walaupun mingguan. Tukar ke YYYY-MM-DD. Jika tiada tarikh, null.\n- time_start (string HH:MM, wajib)\n- time_end (string HH:MM, opsional)\n- recurrence (string, wajib): one_time, weekly, monthly\n- recurrence_day (string, opsional): monday,tuesday,wednesday,thursday,friday,saturday,sunday\n- contact_phone (string, opsional)\n\nRULES:\n1. Jika masjid sama ada beberapa sesi pada masa berbeza, hasilkan satu rekod untuk setiap sesi.\n2. Jangan mengada-ada maklumat.\n3. JANGAN lupa medan date — jika teks ada sebarang tarikh, pastikan diekstrak ke YYYY-MM-DD.\n4. Output JSON sah sahaja tanpa markdown.\n\nFormat:\n{ "events": [ { ... } ] }` },
+        { role: 'user', content: text.trim() }
+      ]
+    });
+
+    const raw = completion.choices?.[0]?.message?.content || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(raw);
+
+    if (!Array.isArray(parsed.events)) {
+      return res.status(422).json({ error: 'LLM tidak mengembalikan senarai events.', raw });
+    }
+
+    const KULIAH_TYPES = ['kuliah_maghrib','kuliah_subuh','ceramah_khas','tazkirah','kuliah_muslimat','kuliah_jumaat'];
+    const RECURRENCE_TYPES = ['one_time','weekly','monthly'];
+
+    const sanitized = parsed.events.map((ev, idx) => ({
+      masjid_name: String(ev.masjid_name || '').trim() || `Rekod ${idx + 1}`,
+      address: String(ev.address || '').trim() || null,
+      district: KEDAH_DISTRICTS.includes(ev.district) ? ev.district : 'Kulim',
+      title: String(ev.title || '').trim() || 'Kuliah',
+      ustaz_name: String(ev.ustaz_name || '').trim() || '-',
+      description: String(ev.description || '').trim() || null,
+      kuliah_type: KULIAH_TYPES.includes(ev.kuliah_type) ? ev.kuliah_type : 'kuliah_maghrib',
+      date: ev.date && /^\d{4}-\d{2}-\d{2}$/.test(String(ev.date)) ? ev.date : null,
+      time_start: String(ev.time_start || '19:15').trim(),
+      time_end: ev.time_end && /^\d{2}:\d{2}$/.test(String(ev.time_end)) ? ev.time_end : null,
+      recurrence: RECURRENCE_TYPES.includes(ev.recurrence) ? ev.recurrence : 'weekly',
+      recurrence_day: ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].includes(ev.recurrence_day) ? ev.recurrence_day : null,
+      contact_phone: String(ev.contact_phone || '').trim() || phone || null,
+      submitted_by: name || null
+    }));
+
+    const inserted = [];
+    const failed = [];
+
+    for (const ev of sanitized) {
+      try {
+        const handleInsert = (masjidId) => {
+          return new Promise((resolve, reject) => {
+            db.run(
+              `INSERT INTO kuliah (masjid_id, title, ustaz_name, description, kuliah_type, date, time_start, time_end, recurrence, recurrence_day, contact_phone, submitted_by, status)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+              [masjidId, ev.title, ev.ustaz_name, ev.description || null, ev.kuliah_type, ev.date || null, ev.time_start, ev.time_end || null, ev.recurrence, ev.recurrence_day || null, ev.contact_phone || phone || null, ev.submitted_by, 'approved'],
+              function(err) { if (err) reject(err); else resolve({ id: this.lastID, masjid_id: masjidId }); }
+            );
+          });
+        };
+
+        // Auto-match masjid by normalized name
+        const normalized = ev.masjid_name.toLowerCase().replace(/surau|masjid/g, '').trim();
+        const row = await new Promise((resolve, reject) => {
+          db.get('SELECT * FROM masjid WHERE LOWER(REPLACE(REPLACE(name, "surau", ""), "masjid", "")) LIKE ?', [`%${normalized}%`], (err, r) => {
+            if (err) reject(err); else resolve(r);
+          });
+        });
+
+        let masjidId;
+        if (row) {
+          masjidId = row.id;
+        } else {
+          masjidId = await new Promise((resolve, reject) => {
+            db.run('INSERT INTO masjid (name, address, district, latitude, longitude, type) VALUES (?,?,?,?,?,?)',
+              [ev.masjid_name, ev.address || '', ev.district || 'Kulim', 0, 0, 'masjid'],
+              function(err) { if (err) reject(err); else resolve(this.lastID); });
+          });
+        }
+
+        const result = await handleInsert(masjidId);
+        inserted.push({ ...ev, ...result });
+      } catch (err) {
+        failed.push({ event: ev, error: err.message });
+      }
+    }
+
+    if (inserted.length > 0) {
+      wss.broadcastKuliahUpdate('approved', { inserted_count: inserted.length });
+    }
+
+    res.json({ success: true, inserted_count: inserted.length, failed_count: failed.length, message: `${inserted.length} jadual kuliah berjaya dimasukkan.` });
+  } catch (err) {
+    console.error('Auto-insert error:', err);
+    res.status(500).json({ error: 'Ralat semasa menganalisis dan memasukkan data.', detail: err.message });
+  }
 });
 
 /* ==================== SPA Fallback (must be last) ==================== */
