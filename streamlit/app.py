@@ -13,9 +13,12 @@ import re
 from datetime import datetime, timedelta
 from math import radians, sin, cos, sqrt, atan2
 
-import folium
-from streamlit_folium import st_folium
 from groq import Groq
+
+PAS_GREEN = "#008000"
+PAS_DARK = "#004d00"
+PAS_LIGHT = "#e6ffe6"
+PAS_BG = "#f0fff0"
 
 # -------------------- SEED DATA --------------------
 SEED_MASJID = [
@@ -116,13 +119,11 @@ def get_db():
         );
     """)
     conn.commit()
-    # Seed masjid
     c.execute("SELECT COUNT(*) FROM masjid")
     if c.fetchone()[0] == 0:
         for m in SEED_MASJID:
             c.execute("INSERT INTO masjid (name,address,district,latitude,longitude,type) VALUES (?,?,?,?,?,?)",
                 (m["name"],m["address"],m["district"],m["latitude"],m["longitude"],m["type"]))
-    # Seed kuliah
     c.execute("SELECT COUNT(*) FROM kuliah")
     if c.fetchone()[0] == 0:
         for k in KULIAH_SEEDS:
@@ -178,13 +179,6 @@ def get_kuliah_by_id(conn, kid):
         WHERE kuliah.id=? AND kuliah.status='approved'""", (kid,)).fetchone()
     return dict(row) if row else None
 
-def haversine(lat1, lng1, lat2, lng2):
-    R = 6371
-    dLat = radians(lat2 - lat1)
-    dLng = radians(lng2 - lng1)
-    a = sin(dLat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dLng/2)**2
-    return R * 2 * atan2(sqrt(a), sqrt(1-a))
-
 def validate_my_phone(phone):
     if not phone: return False
     clean = re.sub(r'\s', '', phone)
@@ -199,12 +193,12 @@ Tugas: Analisis teks jadual kuliah yang diberikan dan ekstrak setiap kuliah seba
 Medan:
 - masjid_name (string, wajib)
 - address (string, opsional)
-- district (string, wajib): Salah satu daerah Kedah (Kota Setar, Kuala Muda, Kubang Pasu, Kulim, Langkawi, Padang Terap, Pendang, Pokok Sena, Sik, Baling, Bandar Baharu, Yan)
+- district (string, wajib): Salah satu daerah Kedah
 - title (string, wajib)
 - ustaz_name (string, wajib)
 - description (string, opsional)
 - kuliah_type (string, wajib): kuliah_maghrib, kuliah_subuh, ceramah_khas, tazkirah, kuliah_muslimat, kuliah_jumaat
-- date (string ISO YYYY-MM-DD, wajib JIKA ada tarikh dalam teks): EKSTRAK tarikh yang dinyatakan dalam teks - ini adalah tarikh kuliah walaupun mingguan. Tukar ke YYYY-MM-DD. Jika tiada tarikh, null.
+- date (string ISO YYYY-MM-DD, wajib JIKA ada tarikh): EKSTRAK tarikh yang dinyatakan. Tukar ke YYYY-MM-DD. Jika tiada, null.
 - time_start (string HH:MM, wajib)
 - time_end (string HH:MM, opsional)
 - recurrence (string, wajib): one_time, weekly, monthly
@@ -212,13 +206,12 @@ Medan:
 - contact_phone (string, opsional)
 
 RULES:
-1. Jika masjid sama ada beberapa sesi pada masa berbeza, hasilkan satu rekod untuk setiap sesi.
+1. Jika masjid ada beberapa sesi, hasilkan satu rekod setiap sesi.
 2. Jangan mengada-ada maklumat.
-3. JANGAN lupa medan date - jika teks ada sebarang tarikh, pastikan diekstrak ke YYYY-MM-DD.
+3. JANGAN lupa medan date.
 4. Output JSON sah sahaja tanpa markdown.
 
-Format:
-{ "events": [ { ... } ] }"""
+Format: { "events": [ { ... } ] }"""
 
     completion = groq_client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -255,7 +248,6 @@ def auto_insert_events(conn, events, phone, name):
         rec_day = ev.get("recurrence_day") if ev.get("recurrence_day") in ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] else None
         contact_phone = str(ev.get("contact_phone", "")).strip() or phone or None
 
-        # Auto-match masjid
         normalized = re.sub(r'surau|masjid', '', masjid_name.lower()).strip()
         c.execute("SELECT * FROM masjid WHERE LOWER(REPLACE(REPLACE(name,'surau',''),'masjid','')) LIKE ?", (f"%{normalized}%",))
         row = c.fetchone()
@@ -272,6 +264,78 @@ def auto_insert_events(conn, events, phone, name):
         inserted += 1
     conn.commit()
     return inserted
+
+def generate_featured(conn, force=False):
+    if "featured_data" in st.session_state and not force:
+        return st.session_state.featured_data
+
+    groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    day_name = DAY_LABELS.get(datetime.now().strftime("%A").lower(), "Hari Ini")
+
+    kuliah_list = get_kuliah(conn, time_filter="today")
+    if not kuliah_list:
+        kuliah_list = get_kuliah(conn, time_filter="week")
+
+    if not kuliah_list:
+        result = {
+            "headline": "Tiada Kuliah Hari Ini",
+            "subhead": "Semak semula esok untuk jadual terkini",
+            "ajakan": "",
+            "count": 0
+        }
+        st.session_state.featured_data = result
+        return result
+
+    event_texts = []
+    for k in kuliah_list[:10]:
+        schedule = ""
+        if k["recurrence"] == "weekly" and k["recurrence_day"]:
+            schedule = f"Setiap {DAY_LABELS.get(k['recurrence_day'], k['recurrence_day'])}"
+        elif k["recurrence"] == "monthly":
+            schedule = "Setiap bulan"
+        if k["date"]:
+            schedule = datetime.strptime(k["date"], "%Y-%m-%d").strftime("%d %B %Y")
+        event_texts.append(f"{k['title']} oleh {k['ustaz_name']} di {k['masjid_name']}, {k['district']}. {schedule} pukul {k['time_start']}")
+
+    prompt = f"""Hari ini adalah {day_name}, {today_str}. Berikut adalah senarai kuliah/ceramah di Kedah hari ini:
+
+{chr(10).join(event_texts)}
+
+Tugas: Tulis satu pengumuman ringkas dalam Bahasa Melayu (gaya PAS / Parti Islam Se-Malaysia, semangat dakwah) yang mengandungi:
+1. Headline yang catchy dan bersemangat (maks 10 patah perkataan)
+2. Subhead / penerangan ringkas (1-2 ayat) tentang apa yang menarik hari ini
+3. Ayat ajakan pendek (maks 1 ayat) supaya orang ramai hadir ke kuliah
+
+Output JSON SAHAJA:
+{{"headline":"...","subhead":"...","ajakan":"..."}}"""
+
+    try:
+        completion = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            temperature=0.7,
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        raw = completion.choices[0].message.content or ""
+        json_match = re.search(r'\{[\s\S]*\}', raw)
+        parsed = json.loads(json_match.group(0) if json_match else raw)
+        result = {
+            "headline": parsed.get("headline", "Kuliah Hari Ini"),
+            "subhead": parsed.get("subhead", ""),
+            "ajakan": parsed.get("ajakan", ""),
+            "count": len(kuliah_list)
+        }
+    except Exception:
+        result = {
+            "headline": f"Kuliah {day_name} di Kedah",
+            "subhead": f"Terdapat {len(kuliah_list)} kuliah dijadualkan hari ini di sekitar Kedah.",
+            "ajakan": "Ayuh hadir ke masjid berdekatan anda!",
+            "count": len(kuliah_list)
+        }
+
+    st.session_state.featured_data = result
+    return result
 
 def format_time(t):
     if not t: return ""
@@ -291,62 +355,95 @@ def format_schedule(k):
 # -------------------- APP --------------------
 conn = get_db()
 
-st.markdown("""
+st.markdown(f"""
     <style>
-    .main .block-container { padding-top: 1rem; padding-bottom: 1rem; }
-    .st-emotion-cache-1jicfl2 { width: 100%; padding: 0; }
+    .main .block-container {{ padding-top: 1rem; padding-bottom: 1rem; }}
+    .st-emotion-cache-1jicfl2 {{ width: 100%; padding: 0; }}
+    .pas-hero {{
+        background: linear-gradient(135deg, {PAS_GREEN}, {PAS_DARK});
+        border-radius: 16px;
+        padding: 2rem 1.5rem;
+        color: white;
+        margin-bottom: 1.5rem;
+    }}
+    .pas-hero h1 {{
+        font-size: 1.8rem;
+        font-weight: 800;
+        line-height: 1.3;
+        margin-bottom: 0.5rem;
+    }}
+    .pas-hero .subhead {{
+        font-size: 1.05rem;
+        opacity: 0.92;
+        line-height: 1.6;
+    }}
+    .pas-hero .ajakan {{
+        margin-top: 1rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        background: rgba(255,255,255,0.2);
+        display: inline-block;
+        padding: 0.5rem 1.2rem;
+        border-radius: 50px;
+    }}
+    .pas-card {{
+        background: white;
+        border: 1px solid #c8e6c8;
+        border-left: 4px solid {PAS_GREEN};
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 0.6rem;
+    }}
+    .stButton > button {{
+        background: {PAS_GREEN};
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 700;
+    }}
+    .stButton > button:hover {{
+        background: {PAS_DARK};
+    }}
     </style>
 """, unsafe_allow_html=True)
 
-st.title("KuliahMap Kedah")
-st.caption("Cari Kuliah & Ceramah Berdekatan Anda di Negeri Kedah")
+st.markdown(f"""
+<div style="text-align:center; margin-bottom:0;">
+    <h1 style="color:{PAS_GREEN}; font-size:2.2rem; font-weight:900; margin-bottom:0;">KuliahMap Kedah</h1>
+    <p style="color:#555; font-size:0.95rem;">Cari Kuliah & Ceramah di Seluruh Negeri Kedah</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Featured Event of the Day
+featured = generate_featured(conn)
+st.markdown(f"""
+<div class="pas-hero">
+    <h1>{featured['headline']}</h1>
+    <div class="subhead">{featured['subhead']}</div>
+    {f'<div class="ajakan">{featured["ajakan"]}</div>' if featured['ajakan'] else ''}
+</div>
+""", unsafe_allow_html=True)
+
+c1, c2, c3 = st.columns([2, 1, 1])
+with c1:
+    if st.button("Segarkan", help="Jana semula pengumuman hari ini dengan AI"):
+        del st.session_state.featured_data
+        st.rerun()
+with c2:
+    st.metric("Jumlah Kuliah Hari Ini", featured["count"])
 
 # Sidebar
 with st.sidebar:
-    st.header("Tapis Carian")
+    st.markdown(f"<h3 style='color:{PAS_GREEN}'>Tapis Carian</h3>", unsafe_allow_html=True)
     district = st.selectbox("Daerah", ["Semua"] + DISTRICTS)
     ktype = st.selectbox("Jenis Kuliah", ["Semua"] + list(TYPE_LABELS.values()))
     time_filter = st.selectbox("Masa", ["Semua", "Hari Ini", "Minggu Ini", "Bulan Ini"])
     search = st.text_input("Cari ustaz, masjid, tajuk...")
-    
     st.markdown("---")
-    st.header("Lokasi Anda")
-    use_gps = st.checkbox("Guna GPS (klik dua kali pada peta)")
-    user_lat = st.number_input("Latitud", value=5.3650, format="%.6f")
-    user_lng = st.number_input("Longitud", value=100.5556, format="%.6f")
-
-# Map
-st.subheader("Peta Masjid & Surau")
-center = [user_lat, user_lng] if use_gps else [5.3650, 100.5556]
-zoom = 12 if use_gps else 10
-m = folium.Map(location=center, zoom_start=zoom, tiles="OpenStreetMap")
-
-masjid_list = get_masjid(conn, district=district if district != "Semua" else None, search=search if search else None)
-for mjid in masjid_list:
-    color = "green" if mjid["type"] == "masjid" else "blue"
-    folium.Marker(
-        [mjid["latitude"], mjid["longitude"]],
-        popup=folium.Popup(f"<b>{mjid['name']}</b><br>{mjid['district']}<br><small>{mjid['address']}</small>", max_width=200),
-        tooltip=mjid["name"],
-        icon=folium.Icon(color=color, icon="mosque", prefix="fa")
-    ).add_to(m)
-
-if use_gps:
-    folium.Marker([user_lat, user_lng], tooltip="Lokasi Anda", icon=folium.Icon(color="red", icon="user", prefix="fa")).add_to(m)
-
-map_data = st_folium(m, width="100%", height=400, returned_objects=["last_clicked"])
-
-# Handle map click
-if map_data and map_data.get("last_clicked"):
-    clicked = map_data["last_clicked"]
-    user_lat = clicked["lat"]
-    user_lng = clicked["lng"]
-    st.success(f"Lokasi dipilih: {user_lat:.4f}, {user_lng:.4f}")
-    st.rerun()
+    st.caption("Disediakan oleh [@PedotTTRG](https://t.me/PedotTTRG)")
 
 # Kuliah list
 st.subheader("Senarai Kuliah")
-
 type_map_rev = {v:k for k,v in TYPE_LABELS.items()}
 kuliah_list = get_kuliah(conn,
     district=district if district != "Semua" else None,
@@ -354,63 +451,62 @@ kuliah_list = get_kuliah(conn,
     time_filter={"Hari Ini":"today","Minggu Ini":"week","Bulan Ini":"month"}.get(time_filter),
     search=search if search else None)
 
-# Add distance if GPS
-if use_gps and kuliah_list:
-    kuliah_list = sorted([
-        {**dict(k), "distance": round(haversine(user_lat, user_lng, k["latitude"], k["longitude"]), 2)}
-        for k in kuliah_list
-    ], key=lambda x: x["distance"])
-
 if not kuliah_list:
     st.info("Tiada kuliah dijumpai untuk carian ini.")
 else:
     for k in kuliah_list:
-        with st.container():
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f"**{k['title']}**  ")
-                st.markdown(f"{k['masjid_name']} | {k['ustaz_name']}")
-                st.markdown(f"{format_schedule(k)} | {format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}")
-                st.markdown(f"`{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}`")
-                if k.get("distance") is not None:
-                    st.markdown(f"**{k['distance']} km** dari lokasi anda")
-            with col2:
-                if st.button("Lihat Detail", key=f"btn_{k['id']}"):
-                    st.session_state.selected_kuliah = k["id"]
-                    st.rerun()
-            st.divider()
+        st.markdown(f"""
+        <div class="pas-card">
+            <div style="display:flex; justify-content:space-between; align-items:start;">
+                <div style="flex:1;">
+                    <strong style="font-size:1.1rem; color:{PAS_DARK};">{k['title']}</strong><br>
+                    <span style="color:#555;">{k['masjid_name']} | {k['ustaz_name']}</span><br>
+                    <span style="color:#777; font-size:0.9rem;">{format_schedule(k)} | {format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}</span><br>
+                    <span style="background:{PAS_GREEN}; color:white; padding:2px 10px; border-radius:8px; font-size:0.75rem; font-weight:700;">{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}</span>
+                </div>
+                <div style="text-align:right;">
+                    <button onclick="document.getElementById('detail_btn_{k['id']}').click()" style="background:{PAS_GREEN}; color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem;">Detail</button>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        detail_col = st.columns([0, 0, 0])
+        if st.button("Lihat", key=f"btn_{k['id']}"):
+            st.session_state.selected_kuliah = k["id"]
+            st.rerun()
+        st.markdown(f"<div style='display:none;'><button id='detail_btn_{k['id']}'></button></div>", unsafe_allow_html=True)
 
 # Detail view
 if "selected_kuliah" in st.session_state and st.session_state.selected_kuliah:
+    st.markdown("---")
     st.subheader("Butiran Kuliah")
     k = get_kuliah_by_id(conn, st.session_state.selected_kuliah)
     if k:
-        col1, col2 = st.columns([2, 1])
+        st.markdown(f"""
+        <div style="background:white; border:2px solid {PAS_GREEN}; border-radius:14px; padding:1.5rem;">
+            <span style="background:{PAS_GREEN}; color:white; padding:4px 14px; border-radius:10px; font-size:0.8rem; font-weight:700;">{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}</span>
+            <h3 style="color:{PAS_DARK}; margin-top:0.5rem;">{k['title']}</h3>
+            <p><strong>{k['masjid_name']}</strong> ({k['district']})</p>
+            <p>{k['ustaz_name']}</p>
+            <p>{format_schedule(k)} | {format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}</p>
+            <p style="font-style:italic; color:#666;">{k.get('description', '')}</p>
+            {f'<small>{k["address"]}</small>' if k['address'] else ''}
+        </div>
+        """, unsafe_allow_html=True)
+
+        waze_url = f"https://waze.com/ul?ll={k['latitude']},{k['longitude']}&navigate=yes"
+        gmaps_url = f"https://www.google.com/maps/dir/?api=1&destination={k['latitude']},{k['longitude']}"
+
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.markdown(f"### {k['title']}")
-            st.markdown(f"**{k['masjid_name']}** ({k['district']})")
-            st.markdown(f"{k['ustaz_name']}")
-            st.markdown(f"{format_schedule(k)}")
-            st.markdown(f"{format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}")
-            st.markdown(f"{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}")
-            if k["description"]:
-                st.markdown(f"> {k['description']}")
-            if k["address"]:
-                st.caption(k["address"])
+            st.link_button("Buka Waze", waze_url, type="secondary")
         with col2:
-            dm = folium.Map(location=[k["latitude"], k["longitude"]], zoom_start=15, height=200)
-            folium.Marker([k["latitude"], k["longitude"]], tooltip=k["masjid_name"]).add_to(dm)
-            st_folium(dm, width=300, height=200, returned_objects=[])
-            
-            waze = f"https://waze.com/ul?ll={k['latitude']},{k['longitude']}&navigate=yes"
-            gmaps = f"https://www.google.com/maps/dir/?api=1&destination={k['latitude']},{k['longitude']}"
-            st.link_button("Buka Waze", waze, type="secondary")
-            st.link_button("Google Maps", gmaps, type="secondary")
-        
-        share_text = f"{k['title']} oleh {k['ustaz_name']} di {k['masjid_name']}"
-        wa = f"https://wa.me/?text={share_text.replace(' ', '%20')}"
-        st.link_button("Kongsi WhatsApp", wa, type="secondary")
-        
+            st.link_button("Google Maps", gmaps_url, type="secondary")
+        with col3:
+            share_text = f"{k['title']} oleh {k['ustaz_name']} di {k['masjid_name']}"
+            wa_url = f"https://wa.me/?text={share_text.replace(' ', '%20')}"
+            st.link_button("Kongsi WhatsApp", wa_url, type="secondary")
+
         if st.button("Kembali"):
             del st.session_state.selected_kuliah
             st.rerun()
@@ -443,9 +539,11 @@ with st.form("bulk_upload"):
                 try:
                     events = groq_parse(up_text)
                     if not events:
-                        st.error("Tiada jadual dapat diekstrak. Sila pastikan teks mengandungi maklumat kuliah.")
+                        st.error("Tiada jadual dapat diekstrak.")
                     else:
                         count = auto_insert_events(conn, events, up_phone.strip(), up_name.strip() or None)
+                        if "featured_data" in st.session_state:
+                            del st.session_state.featured_data
                         st.success(f"{count} jadual kuliah berjaya dimasukkan!")
                         st.rerun()
                 except Exception as e:
@@ -456,4 +554,4 @@ with st.form("bulk_upload"):
                         st.error(f"Ralat: {msg}")
 
 st.markdown("---")
-st.caption("KuliahMap Kedah v2.0 (Streamlit) | Data oleh OpenStreetMap & Komuniti | 2026")
+st.caption("KuliahMap Kedah | Disediakan oleh [@PedotTTRG](https://t.me/PedotTTRG) | 2026")

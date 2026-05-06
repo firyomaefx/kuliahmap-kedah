@@ -346,6 +346,75 @@ function validateMYPhone(phone) {
 }
 app.get('/api/health', (req, res) => res.json({ status: 'OK', version: '2.0.0' }));
 
+let featuredCache = null;
+let featuredCacheTime = 0;
+
+const DAY_LABELS_BACKEND = {monday:'Isnin',tuesday:'Selasa',wednesday:'Rabu',thursday:'Khamis',friday:'Jumaat',saturday:'Sabtu',sunday:'Ahad'};
+
+app.get('/api/events/featured', async (req, res) => {
+  const now = Date.now();
+  if (featuredCache && (now - featuredCacheTime) < 300000) return res.json(featuredCache);
+
+  try {
+    const today = new Date();
+    const dayName = DAY_LABELS_BACKEND[['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][today.getDay()]] || 'Hari Ini';
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+    const rows = await new Promise((resolve, reject) => {
+      db.all(`SELECT kuliah.*, masjid.name as masjid_name, masjid.district FROM kuliah JOIN masjid ON kuliah.masjid_id=masjid.id WHERE kuliah.status='approved' ORDER BY kuliah.date ASC, kuliah.time_start ASC`, [], (err, r) => {
+        if (err) reject(err); else resolve(r || []);
+      });
+    });
+
+    if (!rows || rows.length === 0) {
+      featuredCache = { headline: 'Tiada Kuliah Hari Ini', subhead: 'Semak semula esok untuk jadual terkini.', ajakan: '', count: 0 };
+      featuredCacheTime = now;
+      return res.json(featuredCache);
+    }
+
+    const todayRows = rows.filter(r => r.date === todayStr || r.recurrence !== 'one_time').slice(0, 10);
+    const useRows = todayRows.length > 0 ? todayRows : rows.slice(0, 10);
+
+    const eventTexts = useRows.map(r => {
+      const sch = r.recurrence_day ? `Setiap ${DAY_LABELS_BACKEND[r.recurrence_day] || r.recurrence_day}` : (r.date || '');
+      return `${r.title} oleh ${r.ustaz_name} di ${r.masjid_name}, ${r.district}. ${sch} pukul ${r.time_start}`;
+    });
+
+    const prompt = `Hari ini adalah ${dayName}, ${todayStr}. Berikut adalah senarai kuliah/ceramah di Kedah:\n\n${eventTexts.join('\n')}\n\nTugas: Tulis satu pengumuman ringkas dalam Bahasa Melayu (gaya PAS / Parti Islam Se-Malaysia, semangat dakwah) yang mengandungi:\n1. Headline yang catchy dan bersemangat (maks 10 patah perkataan)\n2. Subhead / penerangan ringkas (1-2 ayat)\n3. Ayat ajakan pendek (maks 1 ayat)\n\nOutput JSON SAHAJA: {"headline":"...","subhead":"...","ajakan":"..."}`;
+
+    if (groq) {
+      const completion = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.7,
+        max_tokens: 512,
+        messages: [{ role: 'user', content: prompt }]
+      });
+      const raw = completion.choices?.[0]?.message?.content || '';
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { headline: '', subhead: '', ajakan: '' };
+      featuredCache = {
+        headline: parsed.headline || `Kuliah ${dayName} di Kedah`,
+        subhead: parsed.subhead || `Terdapat ${rows.length} kuliah dijadualkan hari ini.`,
+        ajakan: parsed.ajakan || 'Ayuh hadir ke masjid berdekatan anda!',
+        count: useRows.length
+      };
+    } else {
+      featuredCache = {
+        headline: `Kuliah ${dayName} di Kedah`,
+        subhead: `Terdapat ${useRows.length} kuliah dijadualkan hari ini di sekitar Kedah.`,
+        ajakan: 'Ayuh hadir ke masjid berdekatan anda!',
+        count: useRows.length
+      };
+    }
+    featuredCacheTime = now;
+    res.json(featuredCache);
+  } catch (err) {
+    console.error('Featured error:', err);
+    if (featuredCache) return res.json(featuredCache);
+    res.json({ headline: 'Jadual Kuliah Kedah', subhead: 'Klik Segarkan untuk memuatkan.', ajakan: '', count: 0 });
+  }
+});
+
 /* ==================== AI IMPORT (Groq LLM) ==================== */
 app.post('/api/events/parse', async (req, res) => {
   const { text, district_hint } = req.body;
