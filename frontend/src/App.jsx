@@ -4,7 +4,6 @@ import { BookOpen, Send, Upload, Shield } from 'lucide-react'
 import Home from './pages/Home'
 import KuliahDetail from './pages/KuliahDetail'
 import SubmitKuliah from './pages/SubmitKuliah'
-import ImportKuliah from './pages/ImportKuliah'
 import Admin from './pages/Admin'
 import Auth from './pages/Auth'
 import api from './api'
@@ -55,7 +54,7 @@ export default function App() {
         <Route path="/kuliah/:id" element={<KuliahDetail />} />
         <Route element={<Shell />}>
           <Route path="/submit" element={<SubmitKuliah />} />
-          <Route path="/import" element={<ImportKuliah />} />
+          <Route path="/import" element={<Navigate to="/submit" replace />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
@@ -69,7 +68,7 @@ export default function App() {
 
 function Shell() {
   const { user, logout } = useAuth()
-  const navs = [{to:'/',label:'Utama',icon:BookOpen},{to:'/submit',label:'Hantar',icon:Send},{to:'/import',label:'Import',icon:Upload},{to:'/admin',label:'Admin',icon:Shield}]
+  const navs = [{to:'/',label:'Utama',icon:BookOpen},{to:'/submit',label:'Hantar',icon:Send},{to:'/admin',label:'Admin',icon:Shield}]
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white flex flex-col">
       <header className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-emerald-800 text-white shadow-lg sticky top-0 z-50">
