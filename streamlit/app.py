@@ -9,11 +9,13 @@ st.set_page_config(
 import sqlite3
 import json
 import os
+import re
 from datetime import datetime, timedelta
 from math import radians, sin, cos, sqrt, atan2
 
 import folium
 from streamlit_folium import st_folium
+from groq import Groq
 
 # -------------------- SEED DATA --------------------
 SEED_MASJID = [
@@ -176,30 +178,100 @@ def get_kuliah_by_id(conn, kid):
         WHERE kuliah.id=? AND kuliah.status='approved'""", (kid,)).fetchone()
     return dict(row) if row else None
 
-def submit_kuliah(conn, data):
-    c = conn.cursor()
-    c.execute("SELECT id FROM masjid WHERE name=?", (data["masjid_name"],))
-    row = c.fetchone()
-    if row:
-        masjid_id = row["id"]
-    else:
-        c.execute("INSERT INTO masjid (name,address,district,latitude,longitude,type) VALUES (?,?,?,?,?,'masjid')",
-            (data["masjid_name"], data.get("address",""), data.get("district","Kulim"), data.get("latitude",0), data.get("longitude",0)))
-        masjid_id = c.lastrowid
-    c.execute("""INSERT INTO kuliah (masjid_id,title,ustaz_name,description,kuliah_type,date,time_start,time_end,recurrence,recurrence_day,contact_phone,status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,'pending')""",
-        (masjid_id, data["title"], data["ustaz_name"], data.get("description"), data["kuliah_type"],
-         data.get("date"), data["time_start"], data.get("time_end"), data.get("recurrence","one_time"),
-         data.get("recurrence_day"), data.get("contact_phone")))
-    conn.commit()
-    return c.lastrowid
-
 def haversine(lat1, lng1, lat2, lng2):
     R = 6371
     dLat = radians(lat2 - lat1)
     dLng = radians(lng2 - lng1)
     a = sin(dLat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dLng/2)**2
     return R * 2 * atan2(sqrt(a), sqrt(1-a))
+
+def validate_my_phone(phone):
+    if not phone: return False
+    clean = re.sub(r'\s', '', phone)
+    return bool(re.match(r'^(01[0-9]{1}-[0-9]{7,8}|01[0-9]{8,9})$', clean))
+
+def groq_parse(text):
+    groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+    system_prompt = """Anda adalah pembantu AI untuk aplikasi "KuliahMap Kedah" yang menjadualkan kuliah dan ceramah di masjid/surau di Kedah, Malaysia.
+
+Tugas: Analisis teks jadual kuliah yang diberikan dan ekstrak setiap kuliah sebagai objek JSON.
+
+Medan:
+- masjid_name (string, wajib)
+- address (string, opsional)
+- district (string, wajib): Salah satu daerah Kedah (Kota Setar, Kuala Muda, Kubang Pasu, Kulim, Langkawi, Padang Terap, Pendang, Pokok Sena, Sik, Baling, Bandar Baharu, Yan)
+- title (string, wajib)
+- ustaz_name (string, wajib)
+- description (string, opsional)
+- kuliah_type (string, wajib): kuliah_maghrib, kuliah_subuh, ceramah_khas, tazkirah, kuliah_muslimat, kuliah_jumaat
+- date (string ISO YYYY-MM-DD, wajib JIKA ada tarikh dalam teks): EKSTRAK tarikh yang dinyatakan dalam teks - ini adalah tarikh kuliah walaupun mingguan. Tukar ke YYYY-MM-DD. Jika tiada tarikh, null.
+- time_start (string HH:MM, wajib)
+- time_end (string HH:MM, opsional)
+- recurrence (string, wajib): one_time, weekly, monthly
+- recurrence_day (string, opsional): monday,tuesday,wednesday,thursday,friday,saturday,sunday
+- contact_phone (string, opsional)
+
+RULES:
+1. Jika masjid sama ada beberapa sesi pada masa berbeza, hasilkan satu rekod untuk setiap sesi.
+2. Jangan mengada-ada maklumat.
+3. JANGAN lupa medan date - jika teks ada sebarang tarikh, pastikan diekstrak ke YYYY-MM-DD.
+4. Output JSON sah sahaja tanpa markdown.
+
+Format:
+{ "events": [ { ... } ] }"""
+
+    completion = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        temperature=0.2,
+        max_tokens=4096,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text.strip()}
+        ]
+    )
+    raw = completion.choices[0].message.content or ""
+    json_match = re.search(r'\{[\s\S]*\}', raw)
+    parsed = json.loads(json_match.group(0) if json_match else raw)
+    return parsed.get("events", [])
+
+def auto_insert_events(conn, events, phone, name):
+    c = conn.cursor()
+    inserted = 0
+    KEDAH_DISTRICTS = ['Kota Setar','Kuala Muda','Kubang Pasu','Kulim','Langkawi','Padang Terap','Pendang','Pokok Sena','Sik','Baling','Bandar Baharu','Yan']
+    KULIAH_TYPES = ['kuliah_maghrib','kuliah_subuh','ceramah_khas','tazkirah','kuliah_muslimat','kuliah_jumaat']
+    RECURRENCE_TYPES = ['one_time','weekly','monthly']
+
+    for ev in events:
+        masjid_name = str(ev.get("masjid_name", "")).strip() or "-"
+        district = ev.get("district") if ev.get("district") in KEDAH_DISTRICTS else "Kulim"
+        title = str(ev.get("title", "")).strip() or "Kuliah"
+        ustaz = str(ev.get("ustaz_name", "")).strip() or "-"
+        desc = str(ev.get("description", "")).strip() or None
+        ktype = ev.get("kuliah_type") if ev.get("kuliah_type") in KULIAH_TYPES else "kuliah_maghrib"
+        date = ev.get("date") if ev.get("date") and re.match(r'^\d{4}-\d{2}-\d{2}$', str(ev.get("date", ""))) else None
+        time_start = str(ev.get("time_start", "19:15")).strip()
+        time_end = ev.get("time_end") if ev.get("time_end") and re.match(r'^\d{2}:\d{2}$', str(ev.get("time_end", ""))) else None
+        rec = ev.get("recurrence") if ev.get("recurrence") in RECURRENCE_TYPES else "weekly"
+        rec_day = ev.get("recurrence_day") if ev.get("recurrence_day") in ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] else None
+        contact_phone = str(ev.get("contact_phone", "")).strip() or phone or None
+
+        # Auto-match masjid
+        normalized = re.sub(r'surau|masjid', '', masjid_name.lower()).strip()
+        c.execute("SELECT * FROM masjid WHERE LOWER(REPLACE(REPLACE(name,'surau',''),'masjid','')) LIKE ?", (f"%{normalized}%",))
+        row = c.fetchone()
+        if row:
+            masjid_id = row["id"]
+        else:
+            c.execute("INSERT INTO masjid (name,address,district,latitude,longitude,type) VALUES (?,?,?,?,?,?)",
+                (masjid_name, ev.get("address",""), district, 0, 0, "masjid"))
+            masjid_id = c.lastrowid
+
+        c.execute("""INSERT INTO kuliah (masjid_id,title,ustaz_name,description,kuliah_type,date,time_start,time_end,recurrence,recurrence_day,contact_phone,submitted_by,status)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (masjid_id, title, ustaz, desc, ktype, date, time_start, time_end, rec, rec_day, contact_phone, name or None, 'approved'))
+        inserted += 1
+    conn.commit()
+    return inserted
 
 def format_time(t):
     if not t: return ""
@@ -345,47 +417,43 @@ if "selected_kuliah" in st.session_state and st.session_state.selected_kuliah:
 
 # Submit form
 st.markdown("---")
-with st.expander("Hantar Jadual Kuliah Baru"):
-    with st.form("submit_kuliah"):
-        st.write("**Maklumat Masjid**")
-        sm_masjid = st.text_input("Nama Masjid/Surau *", placeholder="cth: Masjid Zahir")
-        sm_address = st.text_input("Alamat", placeholder="Jalan...")
-        sm_district = st.selectbox("Daerah *", DISTRICTS)
-        sm_lat = st.number_input("Latitud", value=0.0, format="%.6f")
-        sm_lng = st.number_input("Longitud", value=0.0, format="%.6f")
-        
-        st.write("**Maklumat Kuliah**")
-        sm_title = st.text_input("Tajuk Kuliah *", placeholder="cth: Tafsir Al-Quran")
-        sm_ustaz = st.text_input("Nama Ustaz/Ustazah *", placeholder="cth: Ustaz Ahmad Dusuki")
-        sm_desc = st.text_area("Penerangan", placeholder="Penerangan ringkas...")
-        sm_type = st.selectbox("Jenis Kuliah *", list(TYPE_LABELS.values()))
-        sm_date = st.date_input("Tarikh (jika satu kali)", value=None)
-        c1, c2 = st.columns(2)
-        with c1: sm_start = st.time_input("Masa Mula *", value=None)
-        with c2: sm_end = st.time_input("Masa Tamat", value=None)
-        sm_rec = st.selectbox("Ulangan *", ["Satu Kali","Mingguan","Bulanan"])
-        sm_day = st.selectbox("Hari (jika mingguan)", [""] + list(DAY_LABELS.values())) if sm_rec == "Mingguan" else None
-        sm_phone = st.text_input("No. Telefon", placeholder="012-3456789")
-        
-        submitted = st.form_submit_button("Hantar")
-        if submitted:
-            if not all([sm_masjid, sm_title, sm_ustaz, sm_type, sm_start]):
-                st.error("Sila lengkapkan semua medan wajib (*)")
-            else:
-                data = {
-                    "masjid_name": sm_masjid, "address": sm_address, "district": sm_district,
-                    "latitude": sm_lat, "longitude": sm_lng,
-                    "title": sm_title, "ustaz_name": sm_ustaz, "description": sm_desc,
-                    "kuliah_type": type_map_rev.get(sm_type, sm_type),
-                    "date": sm_date.strftime("%Y-%m-%d") if sm_date else None,
-                    "time_start": sm_start.strftime("%H:%M") if sm_start else "",
-                    "time_end": sm_end.strftime("%H:%M") if sm_end else None,
-                    "recurrence": {"Satu Kali":"one_time","Mingguan":"weekly","Bulanan":"monthly"}.get(sm_rec, "one_time"),
-                    "recurrence_day": {v:k for k,v in DAY_LABELS.items()}.get(sm_day) if sm_day else None,
-                    "contact_phone": sm_phone
-                }
-                submit_kuliah(conn, data)
-                st.success("Jadual kuliah berjaya dihantar untuk disemak!")
+st.subheader("Hantar Jadual Kuliah")
+st.caption("Tampal teks jadual kuliah — AI akan proses secara automatik")
+
+with st.form("bulk_upload"):
+    col1, col2 = st.columns(2)
+    with col1:
+        up_name = st.text_input("Nama (opsional)", placeholder="Abdullah")
+    with col2:
+        up_phone = st.text_input("Telefon *", placeholder="012-3456789")
+    up_text = st.text_area(
+        "Teks Jadual Kuliah *",
+        height=200,
+        placeholder="Tampal teks WhatsApp / poster di sini...\n\nContoh:\nMasjid Zahir, Alor Setar\n5 Mei 2026 - Ustaz Ahmad - Kuliah Maghrib\nKhamis - Ustazah Siti - Kuliah Muslimat"
+    )
+    st.caption(f"{len(up_text)} aksara")
+
+    if st.form_submit_button("Hantar Jadual"):
+        if not up_text.strip():
+            st.error("Sila tampal teks jadual kuliah.")
+        elif not validate_my_phone(up_phone):
+            st.error("Sila masukkan nombor telefon Malaysia yang sah (cth: 012-3456789).")
+        else:
+            with st.spinner("AI sedang menganalisis teks..."):
+                try:
+                    events = groq_parse(up_text)
+                    if not events:
+                        st.error("Tiada jadual dapat diekstrak. Sila pastikan teks mengandungi maklumat kuliah.")
+                    else:
+                        count = auto_insert_events(conn, events, up_phone.strip(), up_name.strip() or None)
+                        st.success(f"{count} jadual kuliah berjaya dimasukkan!")
+                        st.rerun()
+                except Exception as e:
+                    msg = str(e)
+                    if "invalid_api_key" in msg.lower() or "401" in msg:
+                        st.error("Kunci API Groq tidak sah. Sila set GROQ_API_KEY.")
+                    else:
+                        st.error(f"Ralat: {msg}")
 
 st.markdown("---")
-st.caption("KuliahMap Kedah v2.0 (Streamlit) | Data oleh OpenStreetMap & Komuniti | © 2026")
+st.caption("KuliahMap Kedah v2.0 (Streamlit) | Data oleh OpenStreetMap & Komuniti | 2026")
