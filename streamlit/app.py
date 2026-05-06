@@ -464,17 +464,12 @@ else:
                     <span style="color:#777; font-size:0.9rem;">{format_schedule(k)} | {format_time(k['time_start'])}{' - ' + format_time(k['time_end']) if k['time_end'] else ''}</span><br>
                     <span style="background:{PAS_GREEN}; color:white; padding:2px 10px; border-radius:8px; font-size:0.75rem; font-weight:700;">{TYPE_LABELS.get(k['kuliah_type'], k['kuliah_type'])}</span>
                 </div>
-                <div style="text-align:right;">
-                    <button onclick="document.getElementById('detail_btn_{k['id']}').click()" style="background:{PAS_GREEN}; color:white; border:none; padding:6px 14px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem;">Detail</button>
-                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
-        detail_col = st.columns([0, 0, 0])
-        if st.button("Lihat", key=f"btn_{k['id']}"):
+        if st.button("Lihat Detail", key=f"btn_{k['id']}"):
             st.session_state.selected_kuliah = k["id"]
             st.rerun()
-        st.markdown(f"<div style='display:none;'><button id='detail_btn_{k['id']}'></button></div>", unsafe_allow_html=True)
 
 # Detail view
 if "selected_kuliah" in st.session_state and st.session_state.selected_kuliah:
