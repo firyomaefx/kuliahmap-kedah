@@ -186,11 +186,51 @@ def validate_my_phone(phone):
 
 def safe_json_load(raw):
     raw = (raw or "").strip()
+    if not raw:
+        raise json.JSONDecodeError("empty string", "", 0)
     raw = re.sub(r'^```(?:json)?\s*\n?', '', raw)
     raw = re.sub(r'\n?```\s*$', '', raw)
     raw = re.sub(r',\s*}', '}', raw)
     raw = re.sub(r',\s*]', ']', raw)
-    return json.loads(raw)
+    raw = re.sub(r',\s*,', ',', raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    depth = 0
+    in_string = False
+    last_good = -1
+    for i, ch in enumerate(raw):
+        if ch == '"' and (i == 0 or raw[i - 1] != '\\'):
+            in_string = not in_string
+        elif not in_string:
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+            elif ch == '[':
+                depth += 1
+            elif ch == ']':
+                depth -= 1
+        if depth == 0 and not in_string:
+            last_good = i + 1
+
+    if last_good > 0:
+        truncated = raw[:last_good].rstrip().rstrip(',')
+        for ch in reversed(truncated):
+            if ch == '}':
+                break
+            if ch in '["':
+                truncated = truncated.rstrip().rstrip(',')
+                missing = ['}'] + [']' if truncated.count('[') > truncated.count(']') else []] + ['}']
+                truncated += ''.join(missing)
+                break
+        try:
+            return json.loads(truncated)
+        except json.JSONDecodeError:
+            pass
+    raise json.JSONDecodeError("Cannot repair JSON", raw[:100], 0)
 
 def groq_parse(text):
     groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
@@ -199,47 +239,58 @@ def groq_parse(text):
 Tugas: Analisis teks jadual kuliah yang diberikan dan ekstrak setiap kuliah sebagai objek JSON.
 
 Medan:
-- masjid_name (string, wajib)
-- address (string, opsional)
-- district (string, wajib): Salah satu daerah Kedah
-- title (string, wajib)
-- ustaz_name (string, wajib)
-- description (string, opsional)
-- kuliah_type (string, wajib): kuliah_maghrib, kuliah_subuh, ceramah_khas, tazkirah, kuliah_muslimat, kuliah_jumaat
-- date (string ISO YYYY-MM-DD, wajib JIKA ada tarikh): EKSTRAK tarikh yang dinyatakan. Tukar ke YYYY-MM-DD. Jika tiada, null.
-- time_start (string HH:MM, wajib)
-- time_end (string HH:MM, opsional)
-- recurrence (string, wajib): one_time, weekly, monthly
-- recurrence_day (string, opsional): monday,tuesday,wednesday,thursday,friday,saturday,sunday
-- contact_phone (string, opsional)
+- masjid_name (string, WAJIB): Nama masjid atau surau.
+- address (string, opsional): Alamat kampung/taman/bandar.
+- district (string, WAJIB): Nama daerah di Kedah antara: Kota Setar, Kuala Muda, Kubang Pasu, Kulim, Langkawi, Padang Terap, Pendang, Pokok Sena, Sik, Baling, Bandar Baharu, Yan.
+- title (string, WAJIB): Tajuk kuliah. Jika tiada tajuk eksplisit, reka tajuk ringkas berdasarkan konteks seperti "Kuliah Maghrib" atau "Tazkirah" atau "Ceramah Khas".
+- ustaz_name (string, WAJIB): Nama penceramah. Jika tiada, guna "-".
+- description (string, opsional): Penerangan tambahan.
+- kuliah_type (string, WAJIB): Salah satu: kuliah_maghrib, kuliah_subuh, ceramah_khas, tazkirah, kuliah_muslimat, kuliah_jumaat.
+- date (string ISO YYYY-MM-DD): Tarikh jika ada dalam teks. Jika tiada, null.
+- time_start (string HH:MM, WAJIB): Masa mula. Jika tiada masa eksplisit, guna "19:15" untuk kuliah_maghrib/tazkirah/ceramah_khas, "05:30" untuk kuliah_subuh.
+- time_end (string HH:MM, opsional): Masa tamat jika dinyatakan.
+- recurrence (string, WAJIB): one_time, weekly, atau monthly.
+- recurrence_day (string, opsional): monday,tuesday,wednesday,thursday,friday,saturday,sunday jika weekly/monthly.
+- contact_phone (string, opsional): Nombor telefon jika ada.
 
-RULES:
-1. Jika masjid ada beberapa sesi, hasilkan satu rekod setiap sesi.
-2. Jangan mengada-ada maklumat.
-3. JANGAN lupa medan date.
-4. Output JSON sah sahaja tanpa markdown.
+PERATURAN PENTING:
+1. SETIAP medan WAJIB mesti diisi — JANGAN tinggalkan kosong.
+2. title, time_start, masjid_name, ustaz_name, district, kuliah_type, recurrence MESTI diisi untuk setiap rekod.
+3. Jika masjid ada beberapa sesi, hasilkan satu rekod untuk setiap sesi.
+4. Jangan mengada-ada maklumat yang tidak wujud dalam teks.
+5. OUTPUT MESTI lengkap dan sah — pastikan JSON ditutup dengan }]} dengan betul. JANGAN potong output separuh jalan.
 
-Format: { "events": [ { ... } ] }"""
+Output format (JSON SAHAJA, tanpa markdown):
+{"events": [ { ... }, { ... } ]}"""
 
-    completion = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        temperature=0.2,
-        max_tokens=4096,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": text.strip()}
-        ]
-    )
-    raw = completion.choices[0].message.content or ""
-    json_match = re.search(r'\{[\s\S]*\}', raw)
-    try:
-        parsed = safe_json_load(json_match.group(0) if json_match else raw)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"AI tidak mengembalikan JSON yang sah.\n\nOutput AI:\n{raw[:800]}")
-    events = parsed.get("events", [])
-    if not events:
-        raise ValueError(f"AI tidak menjumpai sebarang jadual kuliah dalam teks.\n\nOutput AI:\n{raw[:800]}")
-    return events
+    for attempt in range(2):
+        try:
+            completion = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                temperature=0.1,
+                max_tokens=8192,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text.strip()}
+                ]
+            )
+            raw = completion.choices[0].message.content or ""
+            json_match = re.search(r'\{[\s\S]*\}', raw)
+            json_str = json_match.group(0) if json_match else raw
+            parsed = safe_json_load(json_str)
+            events = parsed.get("events", [])
+            if not events:
+                raise ValueError(f"AI tidak menjumpai sebarang jadual kuliah.\n\nOutput AI:\n{raw[:800]}")
+            return events
+        except json.JSONDecodeError as e:
+            if attempt == 0:
+                text = text.strip() + "\n\n[PERINGATAN: Output MESTI JSON lengkap. Tutup semua kurungan. Jangan potong.]"
+                continue
+            raise ValueError(f"AI tidak mengembalikan JSON yang sah walaupun selepas cuba semula.\n\nOutput AI:\n{raw[:800]}")
+        except Exception as e:
+            if "events" in str(e):
+                raise
+            raise ValueError(f"Ralat Groq: {str(e)[:500]}")
 
 def auto_insert_events(conn, events, phone, name):
     c = conn.cursor()
@@ -325,21 +376,29 @@ Output JSON SAHAJA:
 {{"headline":"...","subhead":"...","ajakan":"..."}}"""
 
     try:
-        completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            temperature=0.7,
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = completion.choices[0].message.content or ""
-        json_match = re.search(r'\{[\s\S]*\}', raw)
-        parsed = safe_json_load(json_match.group(0) if json_match else raw)
-        result = {
-            "headline": parsed.get("headline", "Kuliah Hari Ini"),
-            "subhead": parsed.get("subhead", ""),
-            "ajakan": parsed.get("ajakan", ""),
-            "count": len(kuliah_list)
-        }
+        for retry in range(2):
+            try:
+                completion = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    temperature=0.7,
+                    max_tokens=1024,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                raw = completion.choices[0].message.content or ""
+                json_match = re.search(r'\{[\s\S]*\}', raw)
+                parsed = safe_json_load(json_match.group(0) if json_match else raw)
+                result = {
+                    "headline": parsed.get("headline", "Kuliah Hari Ini"),
+                    "subhead": parsed.get("subhead", ""),
+                    "ajakan": parsed.get("ajakan", ""),
+                    "count": len(kuliah_list)
+                }
+                break
+            except json.JSONDecodeError:
+                if retry == 0:
+                    prompt += "\n\n[WAJIB: Output JSON yang lengkap dan sah. Tutup kurungan.]"
+                    continue
+                raise
     except Exception:
         result = {
             "headline": f"Kuliah {day_name} di Kedah",
