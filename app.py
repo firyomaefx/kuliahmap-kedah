@@ -234,9 +234,12 @@ Format: { "events": [ { ... } ] }"""
     json_match = re.search(r'\{[\s\S]*\}', raw)
     try:
         parsed = safe_json_load(json_match.group(0) if json_match else raw)
-    except json.JSONDecodeError:
-        return []
-    return parsed.get("events", [])
+    except json.JSONDecodeError as e:
+        raise ValueError(f"AI tidak mengembalikan JSON yang sah.\n\nOutput AI:\n{raw[:800]}")
+    events = parsed.get("events", [])
+    if not events:
+        raise ValueError(f"AI tidak menjumpai sebarang jadual kuliah dalam teks.\n\nOutput AI:\n{raw[:800]}")
+    return events
 
 def auto_insert_events(conn, events, phone, name):
     c = conn.cursor()
@@ -544,14 +547,11 @@ with st.form("bulk_upload"):
             with st.spinner("AI sedang menganalisis teks..."):
                 try:
                     events = groq_parse(up_text)
-                    if not events:
-                        st.error("Tiada jadual dapat diekstrak.")
-                    else:
-                        count = auto_insert_events(conn, events, up_phone.strip(), up_name.strip() or None)
-                        if "featured_data" in st.session_state:
-                            del st.session_state.featured_data
-                        st.success(f"{count} jadual kuliah berjaya dimasukkan!")
-                        st.rerun()
+                    count = auto_insert_events(conn, events, up_phone.strip(), up_name.strip() or None)
+                    if "featured_data" in st.session_state:
+                        del st.session_state.featured_data
+                    st.success(f"{count} jadual kuliah berjaya dimasukkan!")
+                    st.rerun()
                 except Exception as e:
                     msg = str(e)
                     if "invalid_api_key" in msg.lower() or "401" in msg:
