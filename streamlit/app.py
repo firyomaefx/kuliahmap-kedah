@@ -184,6 +184,14 @@ def validate_my_phone(phone):
     clean = re.sub(r'\s', '', phone)
     return bool(re.match(r'^(01[0-9]{1}-[0-9]{7,8}|01[0-9]{8,9})$', clean))
 
+def safe_json_load(raw):
+    raw = (raw or "").strip()
+    raw = re.sub(r'^```(?:json)?\s*\n?', '', raw)
+    raw = re.sub(r'\n?```\s*$', '', raw)
+    raw = re.sub(r',\s*}', '}', raw)
+    raw = re.sub(r',\s*]', ']', raw)
+    return json.loads(raw)
+
 def groq_parse(text):
     groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
     system_prompt = """Anda adalah pembantu AI untuk aplikasi "KuliahMap Kedah" yang menjadualkan kuliah dan ceramah di masjid/surau di Kedah, Malaysia.
@@ -224,7 +232,10 @@ Format: { "events": [ { ... } ] }"""
     )
     raw = completion.choices[0].message.content or ""
     json_match = re.search(r'\{[\s\S]*\}', raw)
-    parsed = json.loads(json_match.group(0) if json_match else raw)
+    try:
+        parsed = safe_json_load(json_match.group(0) if json_match else raw)
+    except json.JSONDecodeError:
+        return []
     return parsed.get("events", [])
 
 def auto_insert_events(conn, events, phone, name):
@@ -319,7 +330,7 @@ Output JSON SAHAJA:
         )
         raw = completion.choices[0].message.content or ""
         json_match = re.search(r'\{[\s\S]*\}', raw)
-        parsed = json.loads(json_match.group(0) if json_match else raw)
+        parsed = safe_json_load(json_match.group(0) if json_match else raw)
         result = {
             "headline": parsed.get("headline", "Kuliah Hari Ini"),
             "subhead": parsed.get("subhead", ""),
